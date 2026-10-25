@@ -77,12 +77,20 @@ def executor_node(state: PlanState) -> dict:
     return {"completed_steps": completed, "current_step": state["current_step"] + 1}
 
 
+# LangGraph 1.2's default recursion_limit is ~10k, so it won't stop a replanner
+# that keeps asking for more steps — cap executed steps explicitly.
+MAX_STEPS = 10
+
+
 def replanner_node(state: PlanState) -> dict:
+    out_of_budget = len(state["completed_steps"]) >= MAX_STEPS
     decision: ReplanDecision = _replanner_llm.invoke([
         SystemMessage(content=(
             "Evaluate progress toward the objective. "
             "If all necessary information is gathered, produce a final answer. "
             "Otherwise, revise or continue with remaining steps."
+            + (" The step budget is used up: set is_complete to true and give the "
+               "best final answer from the results so far." if out_of_budget else "")
         )),
         HumanMessage(content=(
             f"Objective: {state['objective']}\n"
@@ -91,9 +99,11 @@ def replanner_node(state: PlanState) -> dict:
             )
         )),
     ])
-    if decision.is_complete:
-        return {"final_answer": decision.final_answer}
+    if decision.is_complete or out_of_budget:
+        return {"final_answer": decision.final_answer or "\n".join(state["completed_steps"])}
     new_plan = decision.revised_steps or state["plan"][state["current_step"]:]
+    if not new_plan:  # nothing left to execute — finish with what we have
+        return {"final_answer": decision.final_answer or "\n".join(state["completed_steps"])}
     return {"plan": new_plan, "current_step": 0}
 
 

@@ -49,7 +49,7 @@ _executor = ChatPromptTemplate.from_messages([
 _replanner = ChatPromptTemplate.from_messages([
     ("system", "Evaluate progress toward the objective. "
                "If all necessary information is gathered, produce a final answer. "
-               "Otherwise, revise or continue with remaining steps."),
+               "Otherwise, revise or continue with remaining steps.{budget_note}"),
     ("human", "Objective: {objective}\nCompleted steps:\n{completed}"),
 ]) | _llm.with_structured_output(ReplanDecision)
 
@@ -65,7 +65,7 @@ def run(objective: str) -> dict:
     completed: List[str] = []
     final_answer: Optional[str] = None
 
-    while len(completed) < MAX_STEPS:
+    while plan:
         for i, step in enumerate(plan):
             result = _executor.invoke({
                 "objective": objective,
@@ -76,13 +76,17 @@ def run(objective: str) -> dict:
             })
             completed.append(f"Step {len(completed) + 1}: {result[:200]}")
 
-        decision = _replanner.invoke({"objective": objective, "completed": "\n".join(f"  {s}" for s in completed)})
-        if decision.is_complete:
-            final_answer = decision.final_answer
+        out_of_budget = len(completed) >= MAX_STEPS
+        decision = _replanner.invoke({
+            "objective": objective,
+            "completed": "\n".join(f"  {s}" for s in completed),
+            "budget_note": (" The step budget is used up: set is_complete to true and give the "
+                            "best final answer from the results so far." if out_of_budget else ""),
+        })
+        if decision.is_complete or out_of_budget:
+            final_answer = decision.final_answer or "\n".join(completed)
             break
         plan = decision.revised_steps or []
-        if not plan:
-            break
 
     return {"plan": plan, "completed_steps": completed, "final_answer": final_answer}
 
