@@ -6,130 +6,33 @@ Run: streamlit run app.py   (or double-click start.bat on Windows)
 
 Agent modules are imported unchanged (they stay standalone-runnable).
 Each page builds inputs and renders results; a framework-specific `run`
-callable does the work: LangChain modules expose run(), LangGraph modules
-are adapted below by calling their compiled `app`.
+callable from registry.py does the work. When guardrails are on, every
+agent call goes through guardrails.Guard (input checks + output redaction).
 """
 import contextlib
-import importlib.util
 import io
 import os
-import uuid
-from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
+import registry
+from guardrails import Guard, GuardrailBlocked, GuardrailConfig
+from registry import FRAMEWORK_DIRS, ROOT, TAVILY_MODULES, hitl_api, make_runner, module_files, new_thread_id
+
 load_dotenv()
 
-ROOT = Path(__file__).parent
-FRAMEWORK_DIRS = {"LangGraph": ROOT, "LangChain": ROOT / "langchain"}
-TAVILY_MODULES = {"01", "02", "10"}
+# Agents whose job needs the PII the guardrail would redact
+PII_EXEMPT = {"11": "extracting contact details is this agent's job"}
 
 st.set_page_config(page_title="LangGraph Agents", page_icon="🤖", layout="wide")
 
 
-# ---------------------------------------------------------------------------
-# Module loading
-# ---------------------------------------------------------------------------
-
-def module_files(framework: str):
-    return sorted(p.name for p in FRAMEWORK_DIRS[framework].glob("[0-9][0-9]_*.py"))
-
-
 @st.cache_resource(show_spinner="Loading agent module...")
 def load_module(path: str):
-    """Import a module by path (names start with digits, so plain import won't work).
-    Cached so in-memory checkpointers and chat histories survive Streamlit reruns."""
-    p = Path(path)
-    spec = importlib.util.spec_from_file_location(f"agent_{p.parent.name}_{p.stem[:2]}", p)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def new_thread_id(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:8]}"
-
-
-# ---------------------------------------------------------------------------
-# LangGraph adapters — map page inputs onto each graph's state schema
-# ---------------------------------------------------------------------------
-
-def _lg_14(m, query, num_results):
-    if m._vectorstore is None:
-        m._vectorstore = m._build_vectorstore()
-    return m.app.invoke({"query": query, "retrieved_docs": [], "answer": "", "num_results": num_results})
-
-
-LANGGRAPH_RUN = {
-    "01": lambda m, query: m.app.invoke({"messages": [HumanMessage(content=query)]}),
-    "02": lambda m, query: m.app.invoke({"messages": [HumanMessage(content=query)]}),
-    "03": lambda m, query: m.app.invoke({"query": query, "route": "", "response": ""}),
-    "04": lambda m, objective: m.app.invoke({
-        "objective": objective, "plan": [], "current_step": 0, "completed_steps": [], "final_answer": None,
-    }),
-    "05": lambda m, task, max_iterations: m.app.invoke({
-        "task": task, "draft": "", "critique": "", "score": 0,
-        "iteration": 0, "max_iterations": max_iterations, "approved": False,
-    }),
-    "08": lambda m, objective: m.app.invoke({
-        "messages": [HumanMessage(content=objective)], "objective": objective,
-        "research_result": "", "written_result": "", "next_worker": "", "iteration": 0,
-    }),
-    "09": lambda m, query: m.app.invoke({
-        "messages": [HumanMessage(content=query)], "active_agent": "triage", "handoff_count": 0,
-    }),
-    "10": lambda m, goal, max_iterations: m.app.invoke(
-        {
-            "messages": [HumanMessage(content=f"Begin working on this goal: {goal}")],
-            "goal": goal, "progress_notes": [], "iteration_count": 0,
-            "max_iterations": max_iterations, "completed": False,
-        },
-        config={"configurable": {"thread_id": new_thread_id("auto")}},
-    ),
-    "11": lambda m, raw_text: m.app.invoke({"raw_text": raw_text, "analysis": None}),
-    "12": lambda m, task: m.app.invoke({
-        "messages": [HumanMessage(content=task)], "last_code": "", "last_output": "", "execution_count": 0,
-    }),
-    "13": lambda m, items, category: m.app.invoke({"items": items, "category": category, "analyses": [], "summary": ""}),
-    "14": _lg_14,
-    "15": lambda m, task, target_score, max_iterations: m.app.invoke({
-        "task": task, "output": "", "score": 0, "feedback": "", "weaknesses": "",
-        "iteration": 0, "max_iterations": max_iterations, "target_score": target_score,
-        "passed": False, "score_history": [],
-    }),
-}
-
-
-def make_runner(framework: str, num: str, m):
-    if framework == "LangChain":
-        return getattr(m, "run", None)
-    adapter = LANGGRAPH_RUN.get(num)
-    return (lambda **kw: adapter(m, **kw)) if adapter else None
-
-
-def hitl_api(framework: str, m):
-    """Human-in-the-loop (07) as two calls: propose(task) -> (token, action); resolve(token, approved) -> result."""
-    if framework == "LangChain":
-        return (lambda task: (None, m.propose_action(task))), (lambda action, token, approved: m.resolve(action, approved))
-
-    from langgraph.types import Command
-
-    def propose(task):
-        thread_id = new_thread_id("hitl")
-        # First invoke runs until interrupt() in request_approval
-        snapshot = m.app.invoke(
-            {"task": task, "proposed_action": "", "approved": None, "result": ""},
-            config={"configurable": {"thread_id": thread_id}},
-        )
-        return thread_id, snapshot.get("proposed_action", "(unknown)")
-
-    def resolve(action, thread_id, approved):
-        final = m.app.invoke(Command(resume=approved), config={"configurable": {"thread_id": thread_id}})
-        return final["result"]
-
-    return propose, resolve
+    """Cached so in-memory checkpointers and chat histories survive Streamlit reruns."""
+    return registry.load_module(path)
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +61,30 @@ def run_demo(module) -> None:
         with contextlib.redirect_stdout(buf):
             module.main()
     st.code(buf.getvalue() or "(no output)", language="text")
+
+
+def guarded_send(guard, send):
+    """Wrap a chat `send(message, thread_id)` with input checks and output redaction."""
+    if guard is None:
+        return send
+    return lambda msg, thread: guard.check_output(send(guard.check_input(msg), thread))
+
+
+def render_guard_log(guard) -> None:
+    for stage, v in guard.log if guard else []:
+        icon = {"block": "⛔", "redact": "✂️", "warn": "⚠️"}[v.action]
+        st.caption(f"🛡️ {icon} {stage} · {v.check}: {v.detail}")
+
+
+def render_eval_rows(rows) -> None:
+    passed = sum(r["passed"] for r in rows)
+    (st.success if passed == len(rows) else st.error)(f"{passed}/{len(rows)} examples passed")
+    for r in rows:
+        label = ", ".join(f"{k}={str(v)[:40]}" for k, v in r["inputs"].items())
+        with st.expander(f"{'✅' if r['passed'] else '❌'} {label}"):
+            st.table([{"check": k, "pass": "✅" if s else "❌", "detail": c or ""} for k, s, c in r["checks"]])
+            st.caption("Agent answer")
+            st.write(r["outputs"].get("answer") or r["outputs"].get("error") or "(empty)")
 
 
 def chat_ui(key: str, send) -> None:
@@ -247,11 +174,15 @@ def page_05(ctx):
 
 def page_06(ctx):
     user_id = st.text_input("User ID (long-term facts are stored per user)", "alice")
-    chat_ui(ctx["key"], lambda msg, thread: ctx["m"].chat(user_id, thread, msg))
+    chat_ui(ctx["key"], guarded_send(ctx["guard"], lambda msg, thread: ctx["m"].chat(user_id, thread, msg)))
 
 
 def page_07(ctx):
     propose, resolve = hitl_api(ctx["framework"], ctx["m"])
+    if guard := ctx["guard"]:
+        _propose, _resolve = propose, resolve
+        propose = lambda task: guard.check_output(_propose(guard.check_input(task)))  # noqa: E731
+        resolve = lambda action, token, ok: guard.check_output(_resolve(action, token, ok))  # noqa: E731
     stage_key, token_key, proposed_key, result_key = (f"{ctx['key']}_{k}" for k in ("stage", "token", "proposed", "result"))
     st.session_state.setdefault(stage_key, "idle")
 
@@ -391,7 +322,7 @@ def page_15(ctx):
 
 
 def page_16(ctx):
-    chat_ui(ctx["key"], lambda msg, thread: ctx["m"].chat(msg, thread_id=thread))
+    chat_ui(ctx["key"], guarded_send(ctx["guard"], lambda msg, thread: ctx["m"].chat(msg, thread_id=thread)))
 
 
 PAGES = {f"{n:02d}": globals()[f"page_{n:02d}"] for n in range(1, 17)}
@@ -415,6 +346,13 @@ with st.sidebar:
         label_visibility="collapsed",
     )
     st.divider()
+    with st.expander("🛡️ Guardrails", expanded=False):
+        guard_on = st.toggle("Enable guardrails", value=True)
+        g_moderation = st.checkbox("Content moderation (OpenAI)", value=True, disabled=not guard_on)
+        g_injection = st.checkbox("Prompt-injection heuristics", value=True, disabled=not guard_on)
+        g_injection_llm = st.checkbox("LLM injection classifier (+1 call)", value=False, disabled=not guard_on)
+        g_pii = st.checkbox("PII redaction", value=True, disabled=not guard_on)
+        g_max = st.number_input("Max input chars", 100, 20000, 4000, step=500, disabled=not guard_on)
     for var in ("OPENAI_API_KEY", "TAVILY_API_KEY", "LANGCHAIN_API_KEY"):
         st.caption(f"{'✅' if os.getenv(var) else '⚠️'} {var}")
     if os.getenv("LANGCHAIN_TRACING_V2") == "true":
@@ -439,19 +377,50 @@ if module.__doc__:
     with st.expander("About this pattern", expanded=False):
         st.text(module.__doc__.strip())
 
-ctx = {"m": module, "run": make_runner(framework, num, module), "key": f"{framework}_{num}", "framework": framework}
+guard = None
+if guard_on:
+    pii = g_pii and num not in PII_EXEMPT
+    guard = Guard(GuardrailConfig(
+        moderation=g_moderation, injection=g_injection, injection_llm=g_injection_llm, pii=pii, max_input_chars=int(g_max),
+    ))
+    if g_pii and not pii:
+        st.caption(f"🛡️ PII redaction is off for this agent: {PII_EXEMPT[num]}.")
 
-tab_run, tab_demo, tab_source = st.tabs(["▶ Run", "📜 Built-in demo", "🧾 Source"])
+runner = make_runner(framework, num, module)
+ctx = {
+    "m": module, "key": f"{framework}_{num}", "framework": framework, "guard": guard,
+    "run": guard.wrap(runner) if guard and runner else runner,
+}
+
+tab_run, tab_demo, tab_evals, tab_source = st.tabs(["▶ Run", "📜 Built-in demo", "🧪 Evals", "🧾 Source"])
 with tab_run:
     try:
         PAGES[num](ctx)
+    except GuardrailBlocked as blocked:
+        st.error(f"🛡️ Blocked by guardrails ({blocked.stage}): "
+                 + "; ".join(f"**{v.check}** — {v.detail}" for v in blocked.violations))
     except Exception as exc:  # e.g. invalid API key, rate limit — show it instead of a traceback
         st.error(f"{type(exc).__name__}: {exc}")
+    render_guard_log(guard)
 with tab_demo:
     st.caption(f"Runs `{choice}`'s own `main()` and shows its printed output.")
     if st.button("Run demo", key=f"demo_{ctx['key']}"):
         try:
             run_demo(module)
+        except Exception as exc:
+            st.error(f"{type(exc).__name__}: {exc}")
+with tab_evals:
+    st.caption(f"Runs this agent's cases from `evals/cases.py` against the {framework} version "
+               "(guardrails are not applied). Full suite: `python evals/run_evals.py`.")
+    c1, c2 = st.columns(2)
+    use_judge = c1.checkbox("LLM-as-judge checks", value=True, key=f"judge_{ctx['key']}")
+    upload = c2.checkbox("Log experiment to LangSmith", value=False, key=f"upload_{ctx['key']}",
+                         disabled=not os.getenv("LANGCHAIN_API_KEY"))
+    if st.button("Run evals", key=f"evals_{ctx['key']}"):
+        from evals.run_evals import run_agent_evals
+        try:
+            with st.spinner("Running eval cases..."):
+                render_eval_rows(run_agent_evals(framework, num, module, upload=upload, use_judge=use_judge))
         except Exception as exc:
             st.error(f"{type(exc).__name__}: {exc}")
 with tab_source:

@@ -39,7 +39,8 @@ def _format_results(response) -> str:
 @tool
 def get_weather(city: str) -> str:
     """Get current weather for a city."""
-    return _format_results(_tavily.invoke({"query": f"current weather in {city}"}))
+    # Restricting to the past day steers results toward today's conditions, not climate averages
+    return _format_results(_tavily.invoke({"query": f"{city} weather today temperature", "time_range": "day"}))
 
 
 @tool

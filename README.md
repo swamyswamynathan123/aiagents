@@ -21,6 +21,9 @@ cp .env.example .env    # macOS / Linux
 start.bat               # Windows: also handles steps 1-2 on first run
 streamlit run app.py    # any OS, inside the venv
 
+# Run the evals (both frameworks + guardrails red-team suite)
+python evals/run_evals.py
+
 # Or run any agent from the command line
 python 01_simple_tool_agent.py            # LangGraph version
 python langchain/01_simple_tool_agent.py  # LangChain version
@@ -409,6 +412,9 @@ aiagents/
 ├── start.bat                       ← Windows launcher for the Streamlit UI
 ├── app.py                          ← Streamlit UI (LangGraph / LangChain switch)
 ├── langchain/                      ← Same 16 agents, LangChain-only (see below)
+├── registry.py                     ← Shared agent loader/adapters (UI + evals)
+├── guardrails.py                   ← Input/output guardrails
+├── evals/                          ← Eval cases + runner (LangSmith experiments)
 ├── 01_simple_tool_agent.py         ← Manual tool loop (foundation)
 ├── 02_react_agent.py               ← ReAct prebuilt
 ├── 03_router_agent.py              ← Conditional routing
@@ -455,6 +461,50 @@ They use the same prompts and demos. Each module exposes `run(...)` (or `chat(..
 The main thing LangGraph adds is durable, resumable state: checkpointed pauses (07), thread
 persistence across processes, and graph-level streaming and visualization. For short linear or
 loop-based flows, the LangChain versions are shorter.
+
+---
+
+## Guardrails (`guardrails.py`)
+
+A shared safety layer that wraps any agent from either framework. The agent modules don't change.
+
+| Stage | Check | Action |
+|-------|-------|--------|
+| Input | Empty / over `max_input_chars` (4000) | Block |
+| Input | Prompt injection: regex heuristics, plus an optional LLM classifier for reworded attacks | Block |
+| Input | OpenAI moderation (`omni-moderation-latest`, free) | Block |
+| Input + output | PII: emails, phone numbers, card numbers (Luhn-checked), SSNs, IP addresses | Redact to `[EMAIL]` etc. |
+| Output | OpenAI moderation on generated text | Block |
+
+```python
+from guardrails import Guard, GuardrailConfig, GuardrailBlocked
+guard = Guard(GuardrailConfig(injection_llm=True))
+safe_run = guard.wrap(run)      # checks every text kwarg + redacts the result
+safe_run(query="...")           # raises GuardrailBlocked on a blocking check; guard.log lists redactions
+```
+
+In the UI, the **🛡️ Guardrails** sidebar section toggles each check. Blocks and redactions are shown
+under the result. PII redaction is skipped for module 11, which needs contact details to do its job.
+Run `python guardrails.py` for a demo.
+
+## Evals (`evals/`)
+
+`evals/cases.py` defines 1–3 cases per agent, shared by both frameworks, plus a guardrails red-team
+suite. Each case declares its checks: required text, tools that must be called, exact field values
+(e.g. router `route == "math"`, handoff `final_agent == "billing"`), numeric bounds, and an
+LLM-as-judge rubric (pass = 4/5 or better) for open-ended answers.
+
+```bash
+python evals/run_evals.py                        # everything → LangSmith experiments + local summary
+python evals/run_evals.py --agents 03,09 --framework langchain
+python evals/run_evals.py --local --no-judge     # nothing uploaded, no judge calls
+python evals/run_evals.py --guardrails-only
+```
+
+With `LANGCHAIN_API_KEY` set, each suite becomes a LangSmith dataset (`aiagents-<suite>-<hash>`) and each
+run an experiment named `langgraph-NN-…` / `langchain-NN-…`, so you can compare the two implementations
+of a pattern side by side. The runner exits with code 1 if any case fails, so it can gate CI. The UI's
+**🧪 Evals** tab runs the current agent's cases on demand.
 
 ---
 
