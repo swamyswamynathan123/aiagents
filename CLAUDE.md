@@ -30,6 +30,8 @@ Each file is independently runnable with `python <filename>.py`.
 
 ## Running
 ```bash
+start.bat                         # Windows: sets up venv/.env, launches Streamlit UI (app.py)
+streamlit run app.py              # UI for all 16 agents
 python 01_simple_tool_agent.py    # simplest — tool loop
 python 07_human_in_loop_agent.py  # two-step: first invoke pauses, second resumes
 python 14_rag_agent.py            # requires faiss-cpu installed
@@ -38,6 +40,11 @@ python 14_rag_agent.py            # requires faiss-cpu installed
 ## LangSmith traces
 Set `LANGCHAIN_TRACING_V2=true` in `.env` → all runs auto-traced at https://smith.langchain.com
 Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
+
+## Frontend (`app.py`)
+- Streamlit UI that imports each module via `importlib` (cached with `st.cache_resource`) and calls its compiled `app` — modules are never modified for the UI
+- One `page_NN(module)` function per module; adding a module means adding its page function
+- "Built-in demo" tab runs the module's `main()` with stdout captured
 
 ## Do not
 - Do not use `PostgresSaver` in these demos (requires a running Postgres instance)

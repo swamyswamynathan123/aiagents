@@ -17,7 +17,11 @@ cp .env.example .env    # macOS / Linux
 # Edit .env and fill in OPENAI_API_KEY, TAVILY_API_KEY and LANGCHAIN_API_KEY
 # (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
 
-# 3. Run any agent
+# 3. Launch the web UI (all 16 agents)
+start.bat               # Windows: also handles steps 1-2 on first run
+streamlit run app.py    # any OS, inside the venv
+
+# Or run any agent from the command line
 python 01_simple_tool_agent.py
 python 16_chatbot_agent.py
 ```
@@ -34,6 +38,7 @@ python 16_chatbot_agent.py
 | OpenAI | `langchain-openai>=0.2.0` | LLM backend (`gpt-4o-mini`) |
 | Tavily | `langchain-tavily>=0.2.0` | Live web search for tools (modules 01, 02, 10) |
 | FAISS | `faiss-cpu>=1.7.0` | In-memory vector store (module 14 only) |
+| Streamlit | `streamlit>=1.40.0` | Web UI for running each agent (`app.py`) |
 | Pydantic v2 | `pydantic>=2.0.0` | Type-safe state and structured output |
 
 ---
