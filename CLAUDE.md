@@ -34,6 +34,7 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 ```bash
 start.bat                         # Windows: sets up venv/.env, launches Streamlit UI (app.py)
 streamlit run app.py              # UI for all 16 agents
+pytest                            # offline unit tests (~25s, no API keys)
 python evals/run_evals.py         # all evals, both frameworks (~10 min)
 python guardrails.py              # guardrails demo
 python 01_simple_tool_agent.py    # simplest — tool loop
@@ -63,6 +64,14 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 - `registry.py`: module loading + uniform calling interface (`make_runner`, `hitl_api`, LangGraph state adapters). Used by `app.py` and `evals/`; agents never import it
 - `guardrails.py`: `Guard(GuardrailConfig(...))` with `check_input` (length, prompt-injection regex + optional LLM classifier, OpenAI moderation, PII redaction) and `check_output` (PII redaction + moderation). `guard.wrap(run)` guards str/list[str] kwargs and the whole result; blocks raise `GuardrailBlocked`. Moderation fails open (warns) if the API errors
 - The UI applies guardrails around agents (sidebar toggles); `PII_EXEMPT` in `app.py` turns off redaction for agents that need PII (11)
+
+## Tests (`tests/`)
+- `pytest` runs offline in ~25s: `conftest.py` sets dummy keys, disables tracing, installs `tests/fakes.py` (scripted `FakeChat` BaseChatModel + fake embeddings/Tavily) before agent modules load, and stubs `guardrails.moderate`
+- Steer the fake per test via `fakes.script`: `structured[SchemaName]`, `reply(system, human)`, `tool_calls`, `tool_order`; inspect `script.prompts` / `script.calls`
+- Agent tests take the `framework` fixture so every behavior is asserted for both LangGraph and LangChain; `load()` gives a fresh module per test
+- Any loop an LLM can keep going (tool calls, replans, handoffs) must have an explicit cap with a test — LangGraph 1.2's default recursion_limit is ~10k
+- CI: `.github/workflows/tests.yml` (every push, no secrets); `evals.yml` is manual-only (needs OPENAI/TAVILY/LANGCHAIN secrets)
+- Dependencies are pinned in `requirements.txt`; to upgrade, bump → `pytest` → `python evals/run_evals.py`. Dev deps: `requirements-dev.txt`
 
 ## Evals (`evals/`)
 - `evals/cases.py`: `SUITES[NN]` = `call(ctx, inputs)` that normalizes output to `{answer, tools, fields}` + examples whose `reference` declares checks (`must_contain`, `must_use_tools`, `fields`, `min_fields`/`max_fields`, `criteria` for the LLM judge). `GUARDRAIL_SUITE` is the red-team set

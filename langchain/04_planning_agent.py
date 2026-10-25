@@ -88,6 +88,8 @@ def run(objective: str) -> dict:
             break
         plan = decision.revised_steps or []
 
+    if final_answer is None:  # replanner returned no steps — finish with what we have
+        final_answer = "\n".join(completed)
     return {"plan": plan, "completed_steps": completed, "final_answer": final_answer}
 
 

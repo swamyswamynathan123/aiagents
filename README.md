@@ -21,6 +21,10 @@ cp .env.example .env    # macOS / Linux
 start.bat               # Windows: also handles steps 1-2 on first run
 streamlit run app.py    # any OS, inside the venv
 
+# Run the offline unit tests (no API keys, ~25s)
+pip install -r requirements-dev.txt
+pytest
+
 # Run the evals (both frameworks + guardrails red-team suite)
 python evals/run_evals.py
 
@@ -415,6 +419,9 @@ aiagents/
 ├── registry.py                     ← Shared agent loader/adapters (UI + evals)
 ├── guardrails.py                   ← Input/output guardrails
 ├── evals/                          ← Eval cases + runner (LangSmith experiments)
+├── tests/                          ← Offline pytest suite (fake LLM)
+├── requirements-dev.txt            ← requirements.txt + pytest
+├── .github/workflows/              ← CI: tests (every push), evals (manual)
 ├── 01_simple_tool_agent.py         ← Manual tool loop (foundation)
 ├── 02_react_agent.py               ← ReAct prebuilt
 ├── 03_router_agent.py              ← Conditional routing
@@ -486,6 +493,23 @@ safe_run(query="...")           # raises GuardrailBlocked on a blocking check; g
 In the UI, the **🛡️ Guardrails** sidebar section toggles each check. Blocks and redactions are shown
 under the result. PII redaction is skipped for module 11, which needs contact details to do its job.
 Run `python guardrails.py` for a demo.
+
+## Tests (`tests/`)
+
+Unit tests check the code, while evals check answer quality. `pytest` runs about 250 tests in roughly
+25 seconds with no API keys. A scripted fake chat model stands in for OpenAI, so prompts,
+`bind_tools`, structured output, `ToolNode` and the graphs all run their real code. Only the
+model's replies are faked. Every agent test runs against both frameworks.
+
+| File | Covers |
+|------|--------|
+| `test_agents.py` | Control flow of all 16 agents: tool loops and their caps, routing, handoffs (including a ping-pong that must stop), plan/reflect/optimize loops, memory per thread and per user, human-in-the-loop approve/reject, fan-out, retrieval. Also checks that the LangChain versions never import LangGraph and that the eval wiring matches agent output |
+| `test_guardrails.py` | PII patterns and false positives (e.g. Fibonacci sequences), injection patterns, block/redact/fail-open logic, `wrap()` |
+| `test_code_sandbox.py` | Agent 12's import and call blocklist, plus execution |
+| `test_app.py` | Every UI page in both frameworks, guardrail blocks and toggles, Evals tab |
+
+CI (`.github/workflows/tests.yml`) runs them on every push. The real-API evals are a separate
+manual workflow (`evals.yml`), because they need secrets and cost API credit.
 
 ## Evals (`evals/`)
 

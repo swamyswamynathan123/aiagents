@@ -1,0 +1,36 @@
+# Real-API evals (OpenAI + Tavily + LangSmith). Manual only, since each run costs
+# API credit. Needs repo secrets: OPENAI_API_KEY, TAVILY_API_KEY, LANGCHAIN_API_KEY.
+name: evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: "Comma-separated agent numbers (blank = all)"
+        required: false
+      framework:
+        description: "langgraph, langchain or both"
+        required: false
+        default: both
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+      LANGCHAIN_TRACING_V2: "true"
+      LANGCHAIN_PROJECT: aiagents-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: >
+          python evals/run_evals.py
+          --framework "${{ inputs.framework }}"
+          ${{ inputs.agents && format('--agents {0}', inputs.agents) || '' }}

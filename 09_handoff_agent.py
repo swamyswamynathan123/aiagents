@@ -64,6 +64,9 @@ AGENT_PROMPTS = {
 }
 
 VALID_AGENTS = set(AGENT_PROMPTS.keys())
+# Cap handoffs so two agents can't bounce a customer back and forth forever
+# (LangGraph 1.2's default recursion_limit is ~10k, so it won't stop this).
+MAX_HANDOFFS = 3
 _HANDOFF_RE = re.compile(r"(?i)^HANDOFF\s*:\s*(\w+)")
 
 
@@ -81,7 +84,7 @@ def _make_agent_node(agent_name: str):
         _match = _HANDOFF_RE.match(content)
         if _match:
             target = _match.group(1).strip().lower()
-            if target in VALID_AGENTS and target != agent_name:
+            if target in VALID_AGENTS and target != agent_name and state["handoff_count"] < MAX_HANDOFFS:
                 handoff_msg = AIMessage(
                     content=f"[{agent_name.title()} Agent] Transferring you to our {target} specialist..."
                 )
