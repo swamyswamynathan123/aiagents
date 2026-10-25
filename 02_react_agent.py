@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_tavily import TavilySearch
 from langgraph.prebuilt import create_react_agent  # deprecated in 1.2.x
 
 load_dotenv()
@@ -22,33 +23,41 @@ load_dotenv()
 # Tools
 # ---------------------------------------------------------------------------
 
+# Tavily web search — requires TAVILY_API_KEY in .env
+_tavily = TavilySearch(max_results=3, include_answer=True)
+
+
+def _format_results(response) -> str:
+    """Flatten a Tavily response into plain text the LLM can read."""
+    if not isinstance(response, dict):
+        return str(response)  # handled tool error, e.g. no results
+    if "error" in response:
+        return f"Search failed: {response['error']}"
+    lines = [f"Answer: {response['answer']}"] if response.get("answer") else []
+    for r in response.get("results", []):
+        lines.append(f"- {r['title']} ({r['url']}): {r['content'][:300]}")
+    return "\n".join(lines) or "No results found."
+
+
 @tool
 def search_web(query: str) -> str:
     """Search the web for current information about a topic."""
-    return (
-        f"Search results for '{query}':\n"
-        f"1. '{query}' is a popular topic with recent developments in 2026.\n"
-        f"2. Experts highlight key trends including AI integration and automation.\n"
-        f"3. Latest studies show significant adoption across industries."
-    )
+    return _format_results(_tavily.invoke({"query": query}))
 
 
 @tool
 def get_stock_price(ticker: str) -> str:
     """Get the current stock price for a ticker symbol."""
-    mock_prices = {"AAPL": 195.42, "GOOGL": 178.30, "MSFT": 425.10, "NVDA": 875.60}
-    price = mock_prices.get(ticker.upper(), 150.00)
-    return f"{ticker.upper()}: ${price:.2f} (mock data)"
+    return _format_results(
+        _tavily.invoke({"query": f"{ticker.upper()} stock price today", "topic": "finance"})
+    )
 
 
 @tool
 def get_news_headlines(topic: str) -> str:
     """Get recent news headlines for a topic."""
-    return (
-        f"Top headlines for '{topic}':\n"
-        f"• Major breakthrough announced in {topic} space — TechCrunch\n"
-        f"• Industry leaders discuss future of {topic} — Reuters\n"
-        f"• New regulations proposed for {topic} sector — Bloomberg"
+    return _format_results(
+        _tavily.invoke({"query": f"{topic} latest news", "topic": "news", "time_range": "week"})
     )
 
 

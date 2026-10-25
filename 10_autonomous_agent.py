@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_tavily import TavilySearch
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
@@ -24,29 +25,26 @@ load_dotenv()
 # Tools
 # ---------------------------------------------------------------------------
 
+# Tavily web search — requires TAVILY_API_KEY in .env
+_tavily = TavilySearch(max_results=5, include_answer=True)
+
+
+def _format_results(response) -> str:
+    """Flatten a Tavily response into plain text the LLM can read."""
+    if not isinstance(response, dict):
+        return str(response)  # handled tool error, e.g. no results
+    if "error" in response:
+        return f"Search failed: {response['error']}"
+    lines = [f"Answer: {response['answer']}"] if response.get("answer") else []
+    for r in response.get("results", []):
+        lines.append(f"- {r['title']} ({r['url']}): {r['content'][:300]}")
+    return "\n".join(lines) or "No results found."
+
+
 @tool
 def research_topic(topic: str) -> str:
     """Research a topic and return key findings."""
-    mock_findings = {
-        "quantum computing": (
-            "Quantum computing uses qubits that can be in superposition. "
-            "Key players: IBM, Google, IonQ. 2026 milestone: 1000+ qubit processors. "
-            "Use cases: cryptography, drug discovery, optimization."
-        ),
-        "langchain": (
-            "LangChain is a framework for building LLM applications. "
-            "Key components: chains, agents, memory, tools. "
-            "LangGraph is its graph-based agent orchestration layer."
-        ),
-        "ai trends": (
-            "Top AI trends 2026: multimodal models, agentic AI, on-device inference, "
-            "AI safety and alignment research, open-source model proliferation."
-        ),
-    }
-    for key in mock_findings:
-        if key in topic.lower():
-            return mock_findings[key]
-    return f"Research on '{topic}': Key insights include rapid adoption, emerging standards, and increasing investment in this domain."
+    return _format_results(_tavily.invoke({"query": topic}))
 
 
 @tool

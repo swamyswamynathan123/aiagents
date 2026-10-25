@@ -9,12 +9,13 @@ Each file is independently runnable with `python <filename>.py`.
 - LangChain >= 0.3.0 — LLM abstractions
 - LangSmith >= 0.2.0 — tracing (auto-enabled via env vars)
 - OpenAI gpt-4o-mini — LLM backend for all modules
+- Tavily (`langchain-tavily`) — live web search backing the tools in modules 01, 02, 10
 - FAISS — in-memory vector store (module 14 only)
 
 ## Environment
 - Python 3.11+, venv at `./venv/`
 - Activate: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Unix)
-- Required env vars in `.env`: `OPENAI_API_KEY`, `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`
+- Required env vars in `.env`: `OPENAI_API_KEY`, `TAVILY_API_KEY`, `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`
 
 ## Module naming convention
 `##_<agent_type>.py` — numbered for learning progression, 01 (simplest) → 16 (most complex)
@@ -25,6 +26,7 @@ Each file is independently runnable with `python <filename>.py`.
 - `Send()` from `langgraph.types` drives parallel fan-out (module 13)
 - `MemorySaver` is dev-only — use `PostgresSaver` in production
 - All modules use `load_dotenv()` and `gpt-4o-mini` by default
+- Tavily: `TavilySearch` from `langchain_tavily` is wrapped in `@tool` functions; each module carries its own `_format_results` helper (kept per-file to stay self-contained). Use `topic="news"`/`"finance"` for news/stock lookups. The client is built at import time, so a missing `TAVILY_API_KEY` fails on startup
 
 ## Running
 ```bash
@@ -39,5 +41,5 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 
 ## Do not
 - Do not use `PostgresSaver` in these demos (requires a running Postgres instance)
-- Do not add real external tool integrations (all tools are mocked for portability)
+- Do not add real external tool integrations beyond Tavily search (other tools stay local/mocked for portability)
 - Do not break the single-file self-contained pattern — each module must run standalone

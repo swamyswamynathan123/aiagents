@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_tavily import TavilySearch
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
@@ -21,15 +22,26 @@ load_dotenv()
 # Tools
 # ---------------------------------------------------------------------------
 
+# Tavily web search — requires TAVILY_API_KEY in .env
+_tavily = TavilySearch(max_results=3, include_answer=True)
+
+
+def _format_results(response) -> str:
+    """Flatten a Tavily response into plain text the LLM can read."""
+    if not isinstance(response, dict):
+        return str(response)  # handled tool error, e.g. no results
+    if "error" in response:
+        return f"Search failed: {response['error']}"
+    lines = [f"Answer: {response['answer']}"] if response.get("answer") else []
+    for r in response.get("results", []):
+        lines.append(f"- {r['title']} ({r['url']}): {r['content'][:300]}")
+    return "\n".join(lines) or "No results found."
+
+
 @tool
 def get_weather(city: str) -> str:
     """Get current weather for a city."""
-    mock_data = {
-        "paris": "Sunny, 18°C",
-        "london": "Cloudy, 12°C",
-        "tokyo": "Rainy, 22°C",
-    }
-    return mock_data.get(city.lower(), f"Partly cloudy, 20°C in {city}")
+    return _format_results(_tavily.invoke({"query": f"current weather in {city}"}))
 
 
 @tool

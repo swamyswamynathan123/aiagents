@@ -14,7 +14,8 @@ bash setup_venv.sh      # macOS / Linux
 # 2. Configure API keys
 copy .env.example .env  # Windows
 cp .env.example .env    # macOS / Linux
-# Edit .env and fill in OPENAI_API_KEY and LANGCHAIN_API_KEY
+# Edit .env and fill in OPENAI_API_KEY, TAVILY_API_KEY and LANGCHAIN_API_KEY
+# (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
 
 # 3. Run any agent
 python 01_simple_tool_agent.py
@@ -31,6 +32,7 @@ python 16_chatbot_agent.py
 | LangChain | `langchain>=0.3.0` | LLM abstractions, tools, prompt templates |
 | LangSmith | `langsmith>=0.2.0` | Tracing, debugging, evaluation |
 | OpenAI | `langchain-openai>=0.2.0` | LLM backend (`gpt-4o-mini`) |
+| Tavily | `langchain-tavily>=0.2.0` | Live web search for tools (modules 01, 02, 10) |
 | FAISS | `faiss-cpu>=1.7.0` | In-memory vector store (module 14 only) |
 | Pydantic v2 | `pydantic>=2.0.0` | Type-safe state and structured output |
 
