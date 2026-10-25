@@ -22,8 +22,8 @@ start.bat               # Windows: also handles steps 1-2 on first run
 streamlit run app.py    # any OS, inside the venv
 
 # Or run any agent from the command line
-python 01_simple_tool_agent.py
-python 16_chatbot_agent.py
+python 01_simple_tool_agent.py            # LangGraph version
+python langchain/01_simple_tool_agent.py  # LangChain version
 ```
 
 ---
@@ -406,6 +406,9 @@ aiagents/
 ├── requirements.txt
 ├── .env.example
 ├── setup_venv.bat / setup_venv.sh
+├── start.bat                       ← Windows launcher for the Streamlit UI
+├── app.py                          ← Streamlit UI (LangGraph / LangChain switch)
+├── langchain/                      ← Same 16 agents, LangChain-only (see below)
 ├── 01_simple_tool_agent.py         ← Manual tool loop (foundation)
 ├── 02_react_agent.py               ← ReAct prebuilt
 ├── 03_router_agent.py              ← Conditional routing
@@ -423,6 +426,35 @@ aiagents/
 ├── 15_evaluator_optimizer_agent.py ← Generate → Judge → Refine
 └── 16_chatbot_agent.py             ← Basic chatbot (start here)
 ```
+
+---
+
+## LangChain Versions (`langchain/`)
+
+The `langchain/` folder has the same 16 agents built without LangGraph: LCEL chains
+(`prompt | llm | parser`), `bind_tools`, `with_structured_output` and plain Python loops.
+They use the same prompts and demos. Each module exposes `run(...)` (or `chat(...)` for
+06/16, and `propose_action()` + `resolve()` for 07) and runs standalone. In the UI, switch
+**Framework** in the sidebar to compare the two versions side by side.
+
+> In LangChain 1.x, `create_agent` runs on LangGraph and the legacy `AgentExecutor` moved to
+> `langchain-classic`, so these modules stick to `langchain-core` primitives.
+
+| # | LangGraph mechanism | LangChain equivalent |
+|---|---------------------|----------------------|
+| 01, 02, 10, 12 | `StateGraph` tool loop / `ToolNode` / `create_react_agent` | `llm.bind_tools()` + `while` loop over `tool_calls` |
+| 03 | `add_conditional_edges` | Classifier chain + `RunnableLambda` dispatch |
+| 04, 05, 08, 15 | Cyclic graph with conditional edges | Python loop around structured-output chains |
+| 06, 16 | `MemorySaver` (+ `InMemoryStore`) | `RunnableWithMessageHistory` (+ dict of user facts) |
+| 07 | `interrupt()` + `Command(resume=...)` | Two calls: `propose_action()` then `resolve()`; app holds pending state |
+| 09 | `Command(goto=...)` handoffs | Loop that switches the active agent chain on `HANDOFF:<agent>` |
+| 11 | Single-node graph | `prompt \| llm.with_structured_output()`, `.batch()` |
+| 13 | `Send()` fan-out + `operator.add` reducer | `chain.batch()` map, then a reduce chain |
+| 14 | retrieve → generate graph | `RunnablePassthrough.assign()` RAG chain over a FAISS retriever |
+
+The main thing LangGraph adds is durable, resumable state: checkpointed pauses (07), thread
+persistence across processes, and graph-level streaming and visualization. For short linear or
+loop-based flows, the LangChain versions are shorter.
 
 ---
 

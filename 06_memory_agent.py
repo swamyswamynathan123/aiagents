@@ -20,6 +20,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.store.base import BaseStore
 from langgraph.store.memory import InMemoryStore
 from typing_extensions import TypedDict
 
@@ -53,10 +54,11 @@ _checkpointer = MemorySaver()
 
 # ---------------------------------------------------------------------------
 # Nodes
-# In LangGraph 1.x, nodes access the store via the `store` parameter.
+# In LangGraph 1.x, nodes access the store via a `store` parameter. It must be
+# annotated as BaseStore exactly, or LangGraph won't inject it.
 # ---------------------------------------------------------------------------
 
-def recall_and_respond(state: MemoryState, *, store: InMemoryStore) -> dict:
+def recall_and_respond(state: MemoryState, *, store: BaseStore) -> dict:
     user_id = state["user_id"]
 
     # Retrieve persisted facts for this user
@@ -82,7 +84,7 @@ def recall_and_respond(state: MemoryState, *, store: InMemoryStore) -> dict:
     return {"messages": [resp]}
 
 
-def _extract_and_save_facts(store: InMemoryStore, user_id: str, text: str, existing) -> None:
+def _extract_and_save_facts(store: BaseStore, user_id: str, text: str, existing) -> None:
     """Heuristically extract simple facts from user message and save to store."""
     existing_facts = {item.value["fact"] for item in existing}
     for pattern, template in _FACT_PATTERNS:

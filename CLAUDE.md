@@ -1,8 +1,9 @@
 # CLAUDE.md — AI Agents Project
 
 ## What this project is
-16 standalone Python modules demonstrating LangGraph agent patterns.
-Each file is independently runnable with `python <filename>.py`.
+16 standalone Python modules demonstrating LangGraph agent patterns, plus the same 16
+patterns re-implemented with LangChain only (no LangGraph) in `langchain/`.
+Each file is independently runnable with `python <filename>.py`. `app.py` is a Streamlit UI for both sets.
 
 ## Stack
 - LangGraph >= 1.2.0 — graph orchestration
@@ -33,6 +34,7 @@ Each file is independently runnable with `python <filename>.py`.
 start.bat                         # Windows: sets up venv/.env, launches Streamlit UI (app.py)
 streamlit run app.py              # UI for all 16 agents
 python 01_simple_tool_agent.py    # simplest — tool loop
+python langchain/01_simple_tool_agent.py  # same agent, LangChain-only
 python 07_human_in_loop_agent.py  # two-step: first invoke pauses, second resumes
 python 14_rag_agent.py            # requires faiss-cpu installed
 ```
@@ -43,10 +45,16 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 
 ## Frontend (`app.py`)
 - Streamlit UI that imports each module via `importlib` (cached with `st.cache_resource`) and calls its compiled `app` — modules are never modified for the UI
-- One `page_NN(module)` function per module; adding a module means adding its page function
+- Sidebar switches framework (LangGraph root vs `langchain/`). Each `page_NN(ctx)` renders inputs/results and calls `ctx["run"]`: the LangChain module's `run()`, or a `LANGGRAPH_RUN[NN]` adapter that maps inputs onto the graph state
+- Adding a module means adding its page function, a LangGraph adapter, and a LangChain `run()`
 - "Built-in demo" tab runs the module's `main()` with stdout captured
 
-## Do not
+## LangChain versions (`langchain/`)
+- Same filenames, prompts and demos as the root modules. Built from LCEL (`prompt | llm | parser`), `bind_tools`, `with_structured_output`, `RunnableWithMessageHistory`, `.batch()`, with control flow in plain Python
+- Must not import `langgraph` (including `langchain.agents.create_agent`, which is LangGraph-backed)
+- UI contract: each exposes `run(**inputs) -> dict` returning the same keys the LangGraph final state has (06/16: `chat(...)`; 07: `propose_action(task)` + `resolve(action, approved)`)
+- No `__init__.py` in `langchain/`: it would shadow the installed `langchain` package when running from the project root
+
 - Do not use `PostgresSaver` in these demos (requires a running Postgres instance)
 - Do not add real external tool integrations beyond Tavily search (other tools stay local/mocked for portability)
 - Do not break the single-file self-contained pattern — each module must run standalone
