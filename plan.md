@@ -24,23 +24,24 @@ evaluation and guardrail practices that make agents dependable. The design reaso
 | 12 | Combined multipage app, localhost only | `main.py`, `.streamlit/config.toml` |
 | 13 | Configurable models (`AGENT_MODEL`), line-ending normalization | `.env.example`, `.gitattributes` |
 | 14 | Capstone: document Q&A with hybrid retrieval and a retrieval benchmark | `projects/doc_qa/` |
+| 15 | Capstone: coding agent graded with hidden tests | `projects/coding_agent/` |
 
 ## Pattern coverage
 
 | # | Pattern | Module | Used in capstones |
 |---|---------|--------|-------------------|
-| 01 | Tool loop | simple_tool_agent | support, data analyst |
+| 01 | Tool loop | simple_tool_agent | support, data analyst, coding agent |
 | 02 | ReAct / web tools | react_agent | research |
 | 03 | Router | router_agent | support, document Q&A |
-| 04 | Plan-and-execute | planning_agent | research |
-| 05 | Reflection | reflection_agent | data analyst, document Q&A |
+| 04 | Plan-and-execute | planning_agent | research, coding agent |
+| 05 | Reflection | reflection_agent | data analyst, document Q&A, coding agent |
 | 06 | Memory | memory_agent | support, document Q&A |
 | 07 | Human-in-the-loop | human_in_loop_agent | support, research |
 | 08 | Supervisor | multi_agent_supervisor | research |
 | 09 | Handoff | handoff_agent | support |
-| 10 | Autonomous agent | autonomous_agent | data analyst |
+| 10 | Autonomous agent | autonomous_agent | data analyst, coding agent |
 | 11 | Structured output | structured_output_agent | data analyst, document Q&A |
-| 12 | Code execution | code_execution_agent | data analyst |
+| 12 | Code execution | code_execution_agent | data analyst, coding agent |
 | 13 | Parallel fan-out | parallel_agent | research |
 | 14 | RAG | rag_agent | support, document Q&A |
 | 15 | Evaluator-optimizer | evaluator_optimizer_agent | research |
@@ -54,7 +55,7 @@ evaluation and guardrail practices that make agents dependable. The design reaso
 - Container sandbox for model-written code
 - Replace deprecated `RunnableWithMessageHistory` in `langchain/06` and `16`; bump GitHub Actions versions
 - `start.sh` for macOS/Linux; Dependabot with CI-gated upgrades
-- Further capstones: a coding agent that fixes failing tests; a durable ops incident responder
+- Durable state, background runs and audit logs: add to existing capstones rather than a new one
 
 ## Constraints (see CLAUDE.md)
 - Pattern modules stay single-file and runnable on their own; capstones are multi-file packages

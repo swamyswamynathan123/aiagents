@@ -5,7 +5,7 @@
 patterns re-implemented with LangChain only (no LangGraph) in `langchain/`.
 Each file is independently runnable with `python <filename>.py`. `app.py` is a Streamlit UI for both sets,
 `guardrails.py` adds input/output safety checks, and `evals/` scores every agent (LangSmith experiments).
-`projects/customer_support/`, `projects/research_report/`, `projects/data_analyst/` and `projects/doc_qa/` are multi-file LangGraph capstones combining several patterns.
+`projects/customer_support/`, `projects/research_report/`, `projects/data_analyst/`, `projects/doc_qa/` and `projects/coding_agent/` are multi-file LangGraph capstones combining several patterns.
 `guide.md` explains every pattern and the design decisions; update it when patterns or lessons change.
 
 ## Stack
@@ -37,7 +37,7 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 ## Running
 ```bash
 start.bat                         # Windows: sets up venv/.env, launches the multipage app (main.py)
-streamlit run main.py             # one app: home, 16 patterns, 4 capstones (localhost only)
+streamlit run main.py             # one app: home, 16 patterns, 5 capstones (localhost only)
 pytest                            # offline unit tests (~25s, no API keys)
 python evals/run_evals.py         # all evals, both frameworks (~10 min)
 python guardrails.py              # guardrails demo
@@ -47,6 +47,7 @@ streamlit run projects/research_report/ui.py   # research capstone UI (plan revi
 streamlit run projects/data_analyst/ui.py      # data analyst UI (CSV upload, charts, show work)
 streamlit run projects/doc_qa/ui.py            # document Q&A UI (upload docs, retrieval modes, citations)
 python -m projects.doc_qa.retrieval_eval       # retrieval benchmark (hit@1, recall@k, MRR per mode)
+streamlit run projects/coding_agent/ui.py      # coding agent UI (pick a task, review the diff)
 python 01_simple_tool_agent.py    # simplest — tool loop
 python langchain/01_simple_tool_agent.py  # same agent, LangChain-only
 python 07_human_in_loop_agent.py  # two-step: first invoke pauses, second resumes
@@ -102,6 +103,7 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 - `research_report/`: `graph.py` (planner → plan_review interrupt → `Send` fan-out to `research` → writer ⇄ reviewer → finalize; `ReportSession` streams updates and tracks token usage), `search.py` (Tavily + drops results with injection patterns). Citations: code numbers sources, validates `[n]`, writes References — the model never writes URLs. Budgets: `MAX_QUESTIONS`, `MAX_RESEARCH_ROUNDS`, `MAX_REVISIONS`. Tests in `tests/test_research.py` (`FakeTavily.respond` scripts search results)
 - `data_analyst/`: `graph.py` (profile → understand `AnalysisSpec` → analyst ⇄ executor → verify → finalize; `AnalystSession`), `sandbox.py` (AST import allow-list, fresh `python -I` subprocess with stripped env, notebook-style replay of earlier ok cells + last-expression display, `save_chart()`), `verify.py` (every number in the answer must appear in an execution output). Sample data from `make_data.py` (deterministic). Tests in `tests/test_data_analyst.py` run real pandas in the sandbox
 - `doc_qa/`: `ingest.py` (md/txt/pdf → `Chunk` with section/page; contextual chunk headers; injected passages quarantined), `retrieval.py` (BM25 with light stemming, FAISS, RRF, LLM re-rank with relevance gate; modes `bm25|vector|hybrid|hybrid+rerank`), `graph.py` (input_guard → condense → retrieve → not_found | generate ⇄ check → finalize; retriever passed via run config, not state; `DocQASession`). Output guard keeps only PII quoted from cited sources (`pii_allow`). `retrieval_eval.py` is the labelled benchmark; keep `tests/test_doc_qa.py`'s BM25 regression guard passing. Sample docs from `make_docs.py` (includes a built-in PDF writer)
+- `coding_agent/`: `graph.py` (input_guard → baseline → agent ⇄ executor → verify → finalize; `CodingSession`), `workspace.py` (tools: path confinement, exact-match `edit_file`, read-only tests, risky-edit filter, isolated `python -I -m pytest` with stripped env), `tasks.py` (bug mutations of `sample_repo/`; `with_hidden_tests()` for grading). The executor reruns tests after every edit and reverts regressions (more failures OR fewer passes); repeated reverted edits are rejected; 3 stalled edits trigger a rethink prompt. The summary users see is written from the diff. Never edit `sample_repo/` in a way that breaks its tests; every task mutation anchor must stay unique (`test_clean_repo_passes_and_every_task_breaks_it`)
 
 ## Do not
 - Do not use `PostgresSaver` in these demos (requires a running Postgres instance)

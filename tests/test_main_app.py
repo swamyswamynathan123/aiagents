@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 from conftest import ROOT
 
 PAGES = ["app.py", "projects/customer_support/ui.py", "projects/research_report/ui.py",
-         "projects/data_analyst/ui.py", "projects/doc_qa/ui.py"]
+         "projects/data_analyst/ui.py", "projects/doc_qa/ui.py", "projects/coding_agent/ui.py"]
 
 
 def open_main():

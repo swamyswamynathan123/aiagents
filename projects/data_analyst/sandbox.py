@@ -109,7 +109,9 @@ def display_last_expression(code: str) -> str:
 def _clean_env(workdir: Path) -> dict:
     import os
 
-    keep = ("SYSTEMROOT", "WINDIR", "PATH", "TEMP", "TMP")  # Windows needs these for numpy to load
+    # System locations only (no secrets): numpy needs SYSTEMROOT, and without SYSTEMDRIVE/PROGRAMDATA
+    # Windows components write caches to a literal "%SystemDrive%" folder in the working directory.
+    keep = ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "PROGRAMDATA", "PATH", "TEMP", "TMP")
     env = {k: v for k, v in os.environ.items() if k.upper() in keep}
     # Shared matplotlib cache: a fresh one per workdir rebuilds the font cache (seconds) on first plot
     MPL_CACHE.mkdir(exist_ok=True)

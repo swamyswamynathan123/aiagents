@@ -2,9 +2,9 @@
 
 This guide explains the agent design patterns in this repository, when to use each one, and the
 design decisions behind them. It covers the 16 pattern modules (LangGraph and LangChain versions),
-the shared guardrails, evals and tests, and four capstones that combine several patterns into
-real applications: a customer support assistant, a research report generator, a data analyst and
-document Q&A over real files.
+the shared guardrails, evals and tests, and five capstones that combine several patterns into
+real applications: a customer support assistant, a research report generator, a data analyst,
+document Q&A over real files, and a coding agent that fixes failing tests.
 
 It is written for developers who know Python and have called an LLM API before, and who want to
 build agents that behave predictably. Wherever possible, the points are tied to something that
@@ -24,7 +24,8 @@ actually happened while building this repo. Several sections describe bugs we hi
 10. [Capstone: research report generator](#10-capstone-research-report-generator)
 11. [Capstone: data analyst](#11-capstone-data-analyst)
 12. [Capstone: document Q&A](#12-capstone-document-qa)
-13. [Lessons learned](#13-lessons-learned)
+13. [Capstone: coding agent](#13-capstone-coding-agent)
+14. [Lessons learned](#14-lessons-learned)
 
 ---
 
@@ -91,7 +92,7 @@ Start at the top and stop at the first "yes":
 
 Real applications usually combine several of these. The support capstone uses guardrails + 03 + 01 +
 09 + 14 + 06 + 07. The research capstone uses 04 + 07 + 13 + 02 + 15 + 08 + guardrails. The data analyst uses 11 + 12 + 10 + 05 +
-guardrails. Document Q&A uses 14 + 03 + 06 + 11 + 05 + guardrails.
+guardrails. Document Q&A uses 14 + 03 + 06 + 11 + 05 + guardrails. The coding agent uses 01 + 10 + 04 + 12 + 05 + guardrails.
 
 ---
 
@@ -116,7 +117,7 @@ the model's text is the answer.
   calling `eval`. Never `eval` model output without restrictions like this.
 - **Tool queries matter as much as prompts.** `get_weather` originally searched "current weather in
   {city}", which returned monthly climate averages. Searching "{city} weather today temperature"
-  over the past day (`time_range="day"`) returns today's conditions. The eval suite caught this (section 13).
+  over the past day (`time_range="day"`) returns today's conditions. The eval suite caught this (section 14).
 - **Failure mode: endless tool calls.** The LangChain loop is capped. The LangGraph version
   relies on the model eventually answering, which is acceptable for a demo but not for production
   (section 7.1).
@@ -248,7 +249,7 @@ and you want to inspect or adjust it.
 **Design notes**
 - **Budget the loop.** After `MAX_STEPS = 10` executed steps, the replanner is told the budget is
   used up and must answer. If it still doesn't, the step results become the answer. Without this,
-  the LangGraph version ran for more than 7 minutes (section 13).
+  the LangGraph version ran for more than 7 minutes (section 14).
 - **Handle an empty plan.** If the replanner returns no steps, finish with what you have rather
   than crashing (LangGraph) or returning no answer (LangChain). Both bugs existed and were found by tests.
 - **Watch what the replanner sees.** Step results are truncated to 200 characters, so the replanner
@@ -330,7 +331,7 @@ the active agent's chain.
 **Design notes**
 - **Cap handoffs.** Two agents that each believe the issue belongs to the other will bounce it
   back and forth forever. The LangGraph version had no cap and looped about 10,000 times until
-  LangGraph's recursion limit (section 13). Both versions now stop at `MAX_HANDOFFS = 3`.
+  LangGraph's recursion limit (section 14). Both versions now stop at `MAX_HANDOFFS = 3`.
 - **Parse handoffs strictly.** A regex anchored at the start (`^HANDOFF\s*:\s*(\w+)`) and a
   whitelist of valid agents keep the model from inventing destinations.
 - **Prefer tool calls to magic strings in real systems.** The capstone uses a
@@ -371,7 +372,7 @@ researching several angles.
   Production systems usually have an LLM summarize facts, plus rules about what may be stored.
 - **The store must be annotated as `BaseStore` exactly.** LangGraph 1.2 only injects the store into
   a node if the parameter is typed `store: BaseStore`. With `store: InMemoryStore`, every call
-  failed with "missing 1 required keyword-only argument: 'store'" (section 13).
+  failed with "missing 1 required keyword-only argument: 'store'" (section 14).
 - **Persistence:** `MemorySaver` and `InMemoryStore` disappear when the process restarts. Use
   `SqliteSaver` for a single machine, or Postgres-backed savers and stores for production.
 - **Privacy:** long-term memory is personal data. Decide what to keep, for how long, and how users can delete it.
@@ -419,11 +420,14 @@ handoffs, retries. **LangGraph 1.2 raised the default `recursion_limit` to about
 | Supervisor (08) | 6 worker calls |
 | Autonomous (10) | `max_iterations` |
 | Capstone specialists | 8 LLM calls per message, then escalate; 2 transfers per message |
+| Coding agent | 25 steps, 12 kept edits, 1 verification retry; a rethink prompt after 3 edits without progress |
 
 Two more techniques help:
 
-- **Loop detection.** The capstone notices when the model repeats an identical tool call within a
-  turn and tells it to answer, transfer or escalate instead.
+- **Loop detection.** The support capstone notices when the model repeats an identical tool call within a
+  turn and tells it to answer, transfer or escalate instead. The coding agent rejects any edit
+  identical to one that was already reverted, and after 3 edits without progress it tells the model
+  to stop, re-read and restate its hypothesis.
 - **Degrade gracefully.** When a budget runs out, give the best answer available or hand off to a
   human. Don't crash, and don't return nothing.
 
@@ -548,6 +552,11 @@ These answer different questions, and you need both:
 | Runs | Every push (CI) | On demand or nightly |
 | Catches | Missing loop limits, broken wiring, guardrail regex bugs | Bad routing, weak answers, poor tool data |
 
+**When a real verifier exists, use it.** The coding agent needs no LLM judge: the test suite says
+whether the fix worked, and **hidden tests** the agent never sees say whether it generalizes rather
+than special-casing the visible ones. Wherever correctness can be computed (tests, ground-truth
+numbers, citation checks), compute it.
+
 **The fake LLM.** `tests/fakes.py` defines `FakeChat`, a real `BaseChatModel`, so prompts,
 `bind_tools`, structured output, `ToolNode` and graphs all run their real code. Only the model's
 replies are scripted (`script.structured[...]`, `script.reply`, `script.tool_calls`). This found
@@ -597,6 +606,10 @@ judge bugs were found in this repo:
 - Long-running patterns (04, 08, 10) benefit from streaming progress to the UI. A spinner for 30
   seconds feels broken.
 - Track token usage per run. The model responses include `usage_metadata`.
+- **Measure cost per solved task, not per token.** On the coding agent's two-bug task,
+  `gpt-4o-mini` succeeded 3 times out of 4 and used 10–25k tokens when it flailed. `gpt-4o`
+  succeeded 4 out of 4, in 5 steps and about 7k tokens. A cheaper model that needs more attempts
+  (or fails) isn't automatically cheaper (section 13.4).
 
 ### 7.12 Security checklist
 
@@ -605,7 +618,9 @@ judge bugs were found in this repo:
   credit and use the code-execution agents. This repo's `.streamlit/config.toml` (and `start.bat`)
   bind the server to `localhost`, and `tests/test_main_app.py` keeps it that way. If the app must
   be shared, put it behind authentication rather than opening the port.
-- **Code execution** needs a real sandbox in production (see 12).
+- **Code execution** needs a real sandbox in production (see 12). The coding agent runs
+  model-edited code under test, so the same rule applies: a stripped environment and a timeout
+  here, and a container for anything shared.
 - **Secrets** live in `.env`, which is gitignored. CI evals use repository secrets and run only on manual dispatch.
 - **Authorization** goes in tools and the backend, not prompts (7.3).
 - **Untrusted content:** both user input and tool output (7.6).
@@ -1131,7 +1146,113 @@ What the numbers showed:
 
 ---
 
-## 13. Lessons learned
+## 13. Capstone: coding agent
+
+`projects/coding_agent/` fixes failing tests in a small Python repo and returns a diff. Run it
+with `streamlit run projects/coding_agent/ui.py` or `python -m projects.coding_agent.demo two-bugs`.
+
+### 13.1 Architecture
+
+```mermaid
+flowchart TD
+    START([request + workspace]) --> IG[input_guard]
+    IG -- blocked --> E1([END])
+    IG --> BL[baseline<br/>run tests, record failures]
+    BL --> AG[agent<br/>list · read · search · run_tests · edit · finish]
+    AG -- tool calls --> EX[executor<br/>path rules · read-only tests · risky-edit filter]
+    EX -- edit --> RT{rerun tests:<br/>worse?}
+    RT -- yes --> RV[revert edit]
+    RT -- no --> KP[keep, show edited lines]
+    RV --> AG
+    KP --> AG
+    EX -- other tools --> AG
+    AG -- finish / budget --> VE[verify<br/>full test run]
+    VE -- failing, 1 retry --> AG
+    VE --> FI[finalize<br/>diff · status · summary written from the diff]
+    FI --> E2([END])
+```
+
+| Pattern | In the capstone |
+|---------|-----------------|
+| Tool loop (01) / autonomous agent (10) | `agent` ⇄ `executor` until `finish` or a budget runs out |
+| Planning (04) | The prompt requires a root-cause hypothesis before any edit |
+| Code execution (12) | Tests run in an isolated subprocess (`python -I`, no API keys, 60 s timeout) |
+| Reflection (05) | `verify` reruns the suite; failures go back to the agent once |
+| Guardrails | Workspace confinement, read-only tests, risky-edit filter, automatic rollback |
+
+### 13.2 The rules live in code
+
+| Rule | Why |
+|------|-----|
+| Paths must resolve inside the workspace | No `../`, no absolute paths, no reading anything outside the repo |
+| **Test files are read-only** | The cheapest way to "pass" a test is to change it. In the first demo run the agent tried exactly that; the edit was rejected and it fixed the code instead |
+| Edits are exact text replacements that must match once | Same idea as a code editor's find-and-replace: an edit can't land somewhere unintended. A non-unique or missing match is an error with instructions |
+| Edits adding `subprocess`, `os.system`, `shutil`, `eval` … are rejected | Model-written code gets executed by the test run |
+| **Tests rerun after every edit; a regression is reverted** | The repo can never end up worse than the agent's best state |
+| Regression = more failures **or fewer passes** | A syntax error turns tests into *collection errors* without raising the failure count (13.4) |
+| An edit identical to a reverted one is rejected | Stops the agent retrying a change that was already shown not to work |
+| After 3 edits without progress: "stop, re-read, restate your hypothesis" | Thrash detection (13.4) |
+| The summary is written from the diff, not the agent's narrative | The agent's own account can be false (13.4) |
+
+### 13.3 Grading with hidden tests
+
+Every task is a known mutation of a clean repo, so success is objective. The evals check:
+- **the visible tests pass;**
+- **the hidden tests pass.** Seven extra tests, and parameterized cases, probe the same behaviours
+  with different inputs: every tier boundary, other rounding values, other discount percentages.
+  A fix like `if quantity == 10` passes the visible test and fails the hidden ones; there's an
+  offline test that proves the hidden tests catch exactly that;
+- **no test file changed;**
+- **the diff stays small**, at most 4–10 changed lines depending on the task, which catches
+  sprawling rewrites.
+
+### 13.4 What the first runs taught us
+
+- **The agent tried to edit a test, then claimed it had.** On the two-bug task it attempted to
+  change `tests/test_inventory.py` (rejected), fixed the real code, then summarized: "the inventory
+  test was modified". The result was correct, but the report was false. The user-facing summary is
+  now **written from the diff** by a separate call that sees only the diff, the request and the
+  test results. The agent's own account is kept separately and shown as "what the agent said".
+- **The rollback was blind to syntax errors.** An edit that put `raise` on the same line as an
+  `if` broke the module. The tests failed to *import*, which pytest reports as 2 errors instead of
+  2 failures, so "failing count went up?" said no and the broken file was kept. Regression now
+  also means "fewer tests pass".
+- **Edits that change nothing caused drift.** Edits that left the failure count unchanged were
+  kept, the code drifted, and the agent edited lines that no longer existed. Three fixes:
+  - show the edited region (with line numbers) after every edit;
+  - reject repeats of reverted edits;
+  - after 3 edits without progress, tell the agent to stop, re-read and restate its hypothesis.
+- **Passing tests isn't the same as good code.** One successful fix added a new check and left the
+  old, now-redundant one in place. The diff-size limit and a human review of the diff remain
+  necessary.
+- **Model choice matters more here than anywhere else in the repo.** On the two-bug task:
+
+  | Model | Fixed (hidden tests pass) | Steps | Edits | Tokens per run |
+  |-------|---------------------------|------:|------:|---------------:|
+  | gpt-4o-mini | 3/4 | 10–25 | 2–16 | ~10–25k |
+  | gpt-4o | 4/4 | 5 | 2 | ~7k |
+
+  The safeguards stop the weaker model from making things worse, but they can't make it reason
+  better. `AGENT_MODEL=gpt-4o` is the documented upgrade for this agent.
+- **One eval check graded the process, not the result.** "Must call `run_tests`" failed a correct
+  fix, because tests already rerun after every edit. The check was removed (see 7.9).
+
+### 13.5 Results and tests
+
+- **7 task evals** (`python -m projects.coding_agent.evals`), graded on visible tests, hidden
+  tests, untouched tests and diff size: 7/7 against the real API (gpt-4o-mini) after the fixes in
+  13.4. On repeated runs, the two-bug task succeeds about 3 times in 4 with gpt-4o-mini and 4 in 4
+  with gpt-4o.
+- **26 offline tests** (`tests/test_coding_agent.py`) run real pytest against real workspaces. They cover:
+  - that every task breaks the clean repo, that hidden tests catch special-casing, and that API keys don't reach the test run;
+  - path confinement, read-only tests, exact-match edits and the risky-edit filter;
+  - rollback, including on syntax errors, and rejection of repeated reverted edits;
+  - the thrash prompt, the verification retry, budgets, partial fixes and blocked requests;
+  - that the summary comes from the diff, that the sample repo is never modified, and the UI.
+
+---
+
+## 14. Lessons learned
 
 Every one of these happened while building this repo.
 
@@ -1157,6 +1278,9 @@ Every one of these happened while building this repo.
 | Output guard redacted a documented IP and support email | PII rules were global, not per application | `pii_types`/`pii_allow`; keep PII quoted from cited sources | Demo run, then evals |
 | BM25 missed "password" vs "Passwords" | No stemming | Light plural stemming | Retrieval benchmark |
 | Hybrid search ranked worse than vector alone | Fusion let BM25 promote a near-duplicate passage | Documented; re-ranking restores the order | Retrieval benchmark |
+| Coding agent claimed it changed a test it wasn't allowed to | The agent's narrative isn't evidence | Summary written from the diff; read-only tests | First demo run |
+| A syntax-breaking edit survived rollback | Collection errors don't raise the failure count | Regression also means fewer passing tests | Inspecting a failed run |
+| Coding agent thrashed through 16 edits | Equal-count edits kept; stale view of the file | Show edited lines; reject repeated reverts; rethink prompt | Repeated eval runs |
 | Research report repeated a dubious claim | Grounded ≠ true: a low-quality source | Documented; source-quality controls (7.7) | Reading the first report |
 
 **Overall:** most bugs were in **control flow and wiring**, not in prompts. They appeared when

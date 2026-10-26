@@ -1,5 +1,5 @@
 """
-One Streamlit app for everything in this repo: the 16 agent patterns and the four capstones.
+One Streamlit app for everything in this repo: the 16 agent patterns and the five capstones.
 Run: streamlit run main.py   (or double-click start.bat on Windows)
 
 Each page is still a standalone script (e.g. `streamlit run projects/data_analyst/ui.py` works on
@@ -25,12 +25,15 @@ def home():
          "output, charts and \"show your work\"."),
         ("projects/doc_qa/ui.py", "📚 Document Q&A", "Ingest PDFs and Markdown, hybrid search with re-ranking, "
          "cited answers, and a retrieval benchmark."),
+        ("projects/coding_agent/ui.py", "🛠️ Coding agent", "Fixes failing tests in a small repo; rollback on "
+         "regressions, read-only tests, hidden-test grading."),
     ]
-    for col, (path, title, text) in zip(st.columns(len(cards)), cards):
-        with col.container(border=True):
-            st.subheader(title)
-            st.caption(text)
-            st.page_link(path, label="Open", icon="➡️")
+    for row in range(0, len(cards), 3):  # three cards per row
+        for col, (path, title, text) in zip(st.columns(3), cards[row:row + 3]):
+            with col.container(border=True):
+                st.subheader(title)
+                st.caption(text)
+                st.page_link(path, label="Open", icon="➡️")
     st.caption("Requires OPENAI_API_KEY and TAVILY_API_KEY in .env. The server only listens on localhost.")
 
 
@@ -42,6 +45,7 @@ pages = {
         st.Page("projects/research_report/ui.py", title="Research reports", icon="📑", url_path="research"),
         st.Page("projects/data_analyst/ui.py", title="Data analyst", icon="📊", url_path="analyst"),
         st.Page("projects/doc_qa/ui.py", title="Document Q&A", icon="📚", url_path="docs"),
+        st.Page("projects/coding_agent/ui.py", title="Coding agent", icon="🛠️", url_path="coding"),
     ],
 }
 st.navigation(pages).run()

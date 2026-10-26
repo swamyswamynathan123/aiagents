@@ -18,7 +18,7 @@ cp .env.example .env    # macOS / Linux
 # (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
 # Optional: AGENT_MODEL=<openai chat model> to run every agent on another model
 
-# 3. Launch the web UI: the 16 patterns and the 4 capstones, in one app (localhost only)
+# 3. Launch the web UI: the 16 patterns and the 5 capstones, in one app (localhost only)
 start.bat               # Windows: also handles steps 1-2 on first run
 streamlit run main.py   # any OS, inside the venv
 
@@ -35,6 +35,7 @@ streamlit run projects/customer_support/ui.py   # support assistant
 streamlit run projects/research_report/ui.py    # research report generator
 streamlit run projects/data_analyst/ui.py       # data analyst over a CSV
 streamlit run projects/doc_qa/ui.py             # document Q&A over PDFs/Markdown
+streamlit run projects/coding_agent/ui.py       # coding agent that fixes failing tests
 
 # Or run any agent from the command line
 python 01_simple_tool_agent.py            # LangGraph version
@@ -423,7 +424,7 @@ aiagents/
 ├── .env.example
 ├── setup_venv.bat / setup_venv.sh
 ├── start.bat                       ← Windows launcher for the Streamlit app
-├── main.py                         ← Multipage Streamlit app: home, patterns, 4 capstones
+├── main.py                         ← Multipage Streamlit app: home, patterns, 5 capstones
 ├── .streamlit/config.toml          ← Binds the server to localhost
 ├── app.py                          ← Patterns page (LangGraph / LangChain switch)
 ├── langchain/                      ← Same 16 agents, LangChain-only (see below)
@@ -435,6 +436,7 @@ aiagents/
 ├── projects/research_report/       ← Capstone: research report generator (LangGraph)
 ├── projects/data_analyst/          ← Capstone: CSV data analyst with sandboxed pandas (LangGraph)
 ├── projects/doc_qa/                ← Capstone: document Q&A with hybrid retrieval (LangGraph)
+├── projects/coding_agent/          ← Capstone: coding agent graded by hidden tests (LangGraph)
 ├── guide.md                        ← Patterns + design considerations (read this)
 ├── requirements-dev.txt            ← requirements.txt + pytest
 ├── .github/workflows/              ← CI: tests (every push), evals (manual)
@@ -519,6 +521,15 @@ containing injection text. It combines keyword (BM25) and vector search with ran
 LLM re-ranker, rewrites follow-up questions, and answers with citations that are checked against
 the sources. It says "not in the documents" without calling the answer model. It has a
 **retrieval benchmark** (hit@1, recall@k, MRR per mode), 9 answer evals and 22 offline tests.
+
+**[projects/coding_agent/](projects/coding_agent/)** is a LangGraph capstone that fixes failing
+tests in a small repo using read, search, edit and test tools. Code enforces the rules:
+- the agent can't leave the repo or edit tests;
+- every edit reruns the tests, and edits that make things worse are reverted;
+- thrashing triggers a rethink prompt.
+
+The test suite is the verifier, and **hidden tests** catch fixes that only special-case the visible
+ones. It has 7 task evals, 26 offline tests, and a documented model comparison (gpt-4o-mini vs gpt-4o).
 
 ## Guardrails (`guardrails.py`)
 
@@ -605,4 +616,4 @@ of a pattern side by side. The runner exits with code 1 if any case fails, so it
 13. `12_code_execution_agent.py` — code-in-the-loop
 14. `11_structured_output_agent.py` — extraction pipelines
 15. **Capstones** (`projects/`), which combine the patterns: customer support → document Q&A →
-    research reports → data analyst. Read the matching section of [guide.md](guide.md) alongside each.
+    research reports → data analyst → coding agent. Read the matching section of [guide.md](guide.md) alongside each.
