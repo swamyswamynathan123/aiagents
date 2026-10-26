@@ -11,12 +11,14 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "evals"), str(Path(__file__).resolve().parent)]
 
-# Override (not setdefault) so a developer's real .env never makes tests hit the network
+# Override (not setdefault) so a developer's real .env never makes tests hit the network.
+# Keys are set to empty rather than removed: the agents' load_dotenv() won't overwrite an
+# existing variable, but would re-add a missing one from .env.
 os.environ.update({
     "OPENAI_API_KEY": "sk-test", "TAVILY_API_KEY": "tvly-test",
+    "LANGCHAIN_API_KEY": "", "LANGSMITH_API_KEY": "",
     "LANGCHAIN_TRACING_V2": "false", "LANGSMITH_TRACING": "false",
 })
-os.environ.pop("LANGCHAIN_API_KEY", None)
 
 import fakes  # noqa: E402
 

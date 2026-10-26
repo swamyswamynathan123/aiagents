@@ -129,6 +129,20 @@ def local_examples(suite):
 # Running
 # ---------------------------------------------------------------------------
 
+def _untraced(fn):
+    """Run fn with tracing off. evaluate(upload_results=False) sets tracing to "local", which
+    nested LangChain calls still treat as enabled and upload — an inner context wins."""
+    import functools
+
+    from langsmith import tracing_context
+
+    @functools.wraps(fn)  # evaluate() inspects the signature (inputs / outputs / reference_outputs)
+    def wrapped(*args, **kwargs):
+        with tracing_context(enabled=False):
+            return fn(*args, **kwargs)
+    return wrapped
+
+
 def make_target(suite, ctx):
     def target(inputs: dict) -> dict:
         try:
@@ -142,16 +156,23 @@ def run_suite(suite, ctx, name: str, *, upload: bool, use_judge: bool, prefix: s
     """Run one suite; returns a list of row dicts for the summary."""
     from langsmith import Client, evaluate
 
+    target, checks = make_target(suite, ctx), make_checks(use_judge)
+    if not upload:
+        target, checks = _untraced(target), _untraced(checks)
     data = sync_dataset(Client(), name, suite) if upload else local_examples(suite)
     results = evaluate(
-        make_target(suite, ctx),
+        target,
         data=data,
-        evaluators=[make_checks(use_judge)],
+        evaluators=[checks],
         experiment_prefix=prefix,
         metadata=metadata,
         max_concurrency=concurrency,
         upload_results=upload,
     )
+    return _collect_rows(results)
+
+
+def _collect_rows(results):
     rows = []
     for r in results:
         checks = [(e.key, e.score, e.comment) for e in r["evaluation_results"]["results"]]

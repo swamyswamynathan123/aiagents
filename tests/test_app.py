@@ -62,4 +62,5 @@ def test_evals_tab_runs_offline():
     at = open_page("LangGraph", "03")
     next(b for b in at.button if b.label == "Run evals").click().run()
     assert not at.exception
-    assert at.success or at.error  # a pass/fail summary was rendered
+    summaries = [m.value for m in [*at.success, *at.error] if "examples passed" in m.value]
+    assert summaries, f"no eval summary rendered: {errors(at)}"
