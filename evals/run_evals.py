@@ -33,6 +33,9 @@ load_dotenv(ROOT / ".env")
 
 DATASET_PREFIX = "aiagents"
 JUDGE_PASS = 4  # LLM judge score (1-5) needed to pass
+# The judge stays fixed while AGENT_MODEL varies, so experiments compare agents, not graders
+JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "gpt-4o-mini")
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")
 
 # ---------------------------------------------------------------------------
 # Evaluators
@@ -51,7 +54,7 @@ def llm_judge(question: str, answer: str, criteria: str):
             score: int = Field(description="1 (fails the criteria) to 5 (fully meets them)", ge=1, le=5)
             reasoning: str = Field(description="One or two sentences")
 
-        _judge = ChatOpenAI(model="gpt-4o-mini", temperature=0).with_structured_output(Verdict)
+        _judge = ChatOpenAI(model=JUDGE_MODEL, temperature=0).with_structured_output(Verdict)
     v = _judge.invoke([
         ("system", f"You are a strict evaluator. Today's date is {date.today().isoformat()}. "
                    "Score how well the answer meets the criteria. The criteria define correct behavior: "
@@ -164,8 +167,8 @@ def run_suite(suite, ctx, name: str, *, upload: bool, use_judge: bool, prefix: s
         target,
         data=data,
         evaluators=[checks],
-        experiment_prefix=prefix,
-        metadata=metadata,
+        experiment_prefix=f"{prefix}-{AGENT_MODEL}",  # experiments are labelled by model for side-by-side comparison
+        metadata={**metadata, "agent_model": AGENT_MODEL, "judge_model": JUDGE_MODEL},
         max_concurrency=concurrency,
         upload_results=upload,
     )
@@ -237,7 +240,7 @@ def main():
     frameworks = {"langgraph": ["LangGraph"], "langchain": ["LangChain"], "both": ["LangGraph", "LangChain"]}[args.framework]
     agents = args.agents.split(",") if args.agents else sorted(SUITES)
     print(f"Evals → {'LangSmith experiments + local summary' if upload else 'local only'}; "
-          f"judge {'off' if args.no_judge else 'on'}\n")
+          f"agent model {AGENT_MODEL}; judge {'off' if args.no_judge else JUDGE_MODEL}\n")
 
     failures = 0
     if not args.skip_guardrails:

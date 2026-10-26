@@ -7,6 +7,7 @@ Use cases: Conversational assistants, FAQ bots, onboarding helpers, the
 LangGraph equivalent: ../16_chatbot_agent.py (one-node graph + MemorySaver)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import Dict
 from dotenv import load_dotenv
 from langchain_core.chat_history import InMemoryChatMessageHistory
@@ -16,7 +17,9 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0.5)
 
 # System prompt (customize per use case)
 SYSTEM_PROMPT = (

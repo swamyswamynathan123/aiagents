@@ -11,6 +11,7 @@ langchain-core primitives so it runs without LangGraph.
 LangGraph equivalent: ../02_react_agent.py (prebuilt create_react_agent)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -19,6 +20,8 @@ from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 
 load_dotenv()
+
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -74,7 +77,7 @@ _prompt = ChatPromptTemplate.from_messages([
                "whenever you need current information. Cite what the tools returned."),
     MessagesPlaceholder("messages"),
 ])
-_agent = _prompt | ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(TOOLS)
+_agent = _prompt | ChatOpenAI(model=MODEL, temperature=0).bind_tools(TOOLS)
 
 MAX_STEPS = 10
 

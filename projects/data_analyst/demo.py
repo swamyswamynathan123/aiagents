@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from projects.research_report.graph import estimate_cost  # noqa: E402
+from projects.research_report.graph import format_cost  # noqa: E402
 
 from .graph import AnalystSession  # noqa: E402
 
@@ -49,7 +49,7 @@ def main():
         print(f"  [{r['status']}] charts: {r['charts'] or 'none'}")
         print(f"A: {r['answer']}\n")
     tokens = sum(u["input_tokens"] + u["output_tokens"] for u in session.usage.values())
-    print(f"Tokens: {tokens:,} (≈ ${estimate_cost(session.usage):.4f})")
+    print(f"Tokens: {tokens:,} ({format_cost(session.usage)})")
 
 
 if __name__ == "__main__":

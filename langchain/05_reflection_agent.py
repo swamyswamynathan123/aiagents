@@ -7,6 +7,7 @@ Use cases: Content quality improvement, code review loops, essay refinement,
 LangGraph equivalent: ../05_reflection_agent.py (generator ⇄ critic cycle)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -15,8 +16,10 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-_critic_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0.7)
+_critic_llm = ChatOpenAI(model=MODEL, temperature=0)
 
 # ---------------------------------------------------------------------------
 # Critic schema

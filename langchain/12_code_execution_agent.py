@@ -23,6 +23,8 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -102,7 +104,7 @@ def execute_python(code: str) -> str:
 TOOLS = [execute_python]
 TOOL_MAP = {t.name: t for t in TOOLS}
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(TOOLS)
+_llm = ChatOpenAI(model=MODEL, temperature=0).bind_tools(TOOLS)
 
 SYSTEM_PROMPT = (
     "You are an expert Python developer. When asked to compute something:\n"

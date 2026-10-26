@@ -9,6 +9,7 @@ Use cases: Background research, automated report generation, long-horizon
 LangGraph equivalent: ../10_autonomous_agent.py (agent ⇄ tools graph + MemorySaver)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import List
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -17,6 +18,8 @@ from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 
 load_dotenv()
+
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -69,7 +72,7 @@ def mark_goal_complete(summary: str) -> str:
 TOOLS = [research_topic, save_note, generate_report, mark_goal_complete]
 TOOL_MAP = {t.name: t for t in TOOLS}
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(TOOLS)
+_llm = ChatOpenAI(model=MODEL, temperature=0).bind_tools(TOOLS)
 
 # ---------------------------------------------------------------------------
 # Autonomous loop

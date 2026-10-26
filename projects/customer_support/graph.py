@@ -15,6 +15,7 @@ Flow for each customer message:
 Patterns: guardrails, router (03), tool loop (01), handoff (09), RAG (14),
 short- and long-term memory (06), human-in-the-loop (07).
 """
+import os
 import json
 from typing import Annotated, List, Literal, Optional
 
@@ -93,7 +94,8 @@ Rules:
 # Helpers
 # ---------------------------------------------------------------------------
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 
 
 class TriageDecision(BaseModel):

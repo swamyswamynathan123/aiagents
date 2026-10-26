@@ -6,6 +6,7 @@ Use cases: Complex research tasks, multi-step workflows, automated project
            management, tasks that benefit from upfront decomposition.
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import List, Optional
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -16,7 +17,9 @@ from typing_extensions import TypedDict
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 
 # ---------------------------------------------------------------------------
 # State

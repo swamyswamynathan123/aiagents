@@ -8,6 +8,7 @@ Use cases: Personal assistants, customer support with history, tutoring
 LangGraph equivalent: ../06_memory_agent.py (MemorySaver + InMemoryStore)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 import re
 from typing import Dict, List
 from dotenv import load_dotenv
@@ -18,7 +19,9 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0.3)
 
 _FACT_PATTERNS = [
     (re.compile(r"\bmy name is (\w+)", re.IGNORECASE), "User's name is {}"),

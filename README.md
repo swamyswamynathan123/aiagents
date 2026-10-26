@@ -16,6 +16,7 @@ copy .env.example .env  # Windows
 cp .env.example .env    # macOS / Linux
 # Edit .env and fill in OPENAI_API_KEY, TAVILY_API_KEY and LANGCHAIN_API_KEY
 # (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
+# Optional: AGENT_MODEL=<openai chat model> to run every agent on another model
 
 # 3. Launch the web UI: the 16 patterns and the 3 capstones, in one app (localhost only)
 start.bat               # Windows: also handles steps 1-2 on first run
@@ -48,7 +49,7 @@ python langchain/01_simple_tool_agent.py  # LangChain version
 | LangGraph | `langgraph>=1.2.0` | Graph orchestration, state management, agent loops |
 | LangChain | `langchain>=0.3.0` | LLM abstractions, tools, prompt templates |
 | LangSmith | `langsmith>=0.2.0` | Tracing, debugging, evaluation |
-| OpenAI | `langchain-openai>=0.2.0` | LLM backend (`gpt-4o-mini`) |
+| OpenAI | `langchain-openai` | LLM backend (`gpt-4o-mini` by default; set `AGENT_MODEL` to change) |
 | Tavily | `langchain-tavily>=0.2.0` | Live web search for tools (modules 01, 02, 10) |
 | FAISS | `faiss-cpu>=1.7.0` | In-memory vector store (module 14 only) |
 | Streamlit | `streamlit>=1.40.0` | Web UI for running each agent (`app.py`) |
@@ -550,6 +551,12 @@ CI (`.github/workflows/tests.yml`) runs them on every push. The real-API evals a
 manual workflow (`evals.yml`), because they need secrets and cost API credit.
 
 ## Evals (`evals/`)
+
+**Comparing models.** Set `AGENT_MODEL` and rerun the evals, for example
+`AGENT_MODEL=gpt-4o python evals/run_evals.py --agents 03,11`. Experiments are named after the model
+(`langgraph-03-gpt-4o-…`) and record `agent_model` / `judge_model` metadata. The judge
+(`EVAL_JUDGE_MODEL`) stays fixed, so differences come from the agent, not the grader.
+
 
 `evals/cases.py` defines 1–3 cases per agent, shared by both frameworks, plus a guardrails red-team
 suite. Each case declares its checks: required text, tools that must be called, exact field values

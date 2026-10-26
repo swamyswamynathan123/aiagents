@@ -37,6 +37,25 @@ def test_module_loads_and_has_demo(framework, num):
 
 
 @pytest.mark.parametrize("num", AGENT_NUMS)
+def test_agent_model_comes_from_env(framework, num, monkeypatch):
+    monkeypatch.setenv("AGENT_MODEL", "some-other-model")
+    m = load(framework, num)
+    assert m.MODEL == "some-other-model"
+    models = {getattr(v, "model", None) or getattr(getattr(v, "bound", None), "model", None)
+              for v in vars(m).values() if "Chat" in type(v).__name__ or hasattr(v, "bound")}
+    assert models - {None} <= {"some-other-model"}  # every model object built from MODEL
+
+
+def test_no_hardcoded_model_names():
+    from conftest import ROOT
+
+    files = [*ROOT.glob("[0-9][0-9]_*.py"), *ROOT.glob("langchain/*.py"), *ROOT.glob("projects/*/*.py"),
+             ROOT / "guardrails.py", ROOT / "evals" / "run_evals.py"]
+    offenders = [f.name for f in files if 'ChatOpenAI(model="' in f.read_text(encoding="utf-8")]
+    assert offenders == []
+
+
+@pytest.mark.parametrize("num", AGENT_NUMS)
 def test_langchain_version_does_not_import_langgraph(monkeypatch, num):
     for name in [k for k in sys.modules if k == "langgraph" or k.startswith("langgraph.")]:
         monkeypatch.delitem(sys.modules, name)

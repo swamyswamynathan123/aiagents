@@ -8,6 +8,7 @@ Use cases: Background research, automated report generation, long-horizon
            human prompting.
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import Annotated, List, Optional
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -20,6 +21,8 @@ from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 load_dotenv()
+
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -89,7 +92,7 @@ class AutonomousState(TypedDict):
 # Nodes
 # ---------------------------------------------------------------------------
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(TOOLS)
+_llm = ChatOpenAI(model=MODEL, temperature=0).bind_tools(TOOLS)
 
 
 def autonomous_agent_node(state: AutonomousState) -> dict:

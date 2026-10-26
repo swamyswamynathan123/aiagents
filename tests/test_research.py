@@ -7,7 +7,7 @@ from conftest import ROOT
 from fakes import FakeTavily, script
 from projects.research_report import graph
 from projects.research_report.graph import (MAX_QUESTIONS, MAX_REVISIONS, ReportSession, build_app,
-                                            citation_problems, estimate_cost, number_sources)
+                                            citation_problems, estimate_cost, format_cost, number_sources)
 
 
 def plan(*questions):
@@ -57,7 +57,10 @@ def test_sources_are_numbered_once_across_findings():
 def test_estimate_cost():
     usage = {"gpt-4o-mini-2024-07-18": {"input_tokens": 1_000_000, "output_tokens": 1_000_000}}
     assert estimate_cost(usage) == pytest.approx(0.75)
-    assert estimate_cost({"unknown-model": {"input_tokens": 10, "output_tokens": 10}}) == 0
+    unknown = {**usage, "some-new-model": {"input_tokens": 10, "output_tokens": 10}}
+    assert estimate_cost(unknown) is None  # never a silent $0
+    assert format_cost(usage) == "≈ $0.7500"
+    assert format_cost(unknown).startswith("cost unknown for some-new-model")
 
 
 # ---------------------------------------------------------------------------

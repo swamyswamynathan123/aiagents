@@ -17,6 +17,7 @@ Patterns: plan-and-execute (04), parallel fan-out (13), supervisor-style routing
 by the reviewer (08), evaluator-optimizer (15), web research tools (02),
 human-in-the-loop (07) and guardrails, including untrusted-content filtering.
 """
+import os
 import operator
 import re
 from typing import Annotated, List, Literal, Optional
@@ -130,8 +131,9 @@ REVIEW_RUBRIC = (
 # Models
 # ---------------------------------------------------------------------------
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-_writer_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+_llm = ChatOpenAI(model=MODEL, temperature=0)
+_writer_llm = ChatOpenAI(model=MODEL, temperature=0.4)
 _planner = _llm.with_structured_output(ResearchPlan)
 _extractor = _llm.with_structured_output(KeyFacts)
 _reviewer = _llm.with_structured_output(ReviewResult)
@@ -361,13 +363,26 @@ class ReportSession:
         }
 
 
-# gpt-4o-mini list price per 1M tokens (input, output); check current pricing before relying on it
+# List price per 1M tokens (input, output); check current pricing before relying on it.
+# Add an entry when you switch AGENT_MODEL, or costs show as unknown.
 PRICE_PER_M = {"gpt-4o-mini": (0.15, 0.60)}
 
 
-def estimate_cost(usage: dict) -> float:
-    total = 0.0
-    for model, u in usage.items():
-        price_in, price_out = next((p for name, p in PRICE_PER_M.items() if model.startswith(name)), (0, 0))
-        total += u["input_tokens"] / 1e6 * price_in + u["output_tokens"] / 1e6 * price_out
-    return total
+def _price(model: str):
+    return next((p for name, p in PRICE_PER_M.items() if model.startswith(name)), None)
+
+
+def estimate_cost(usage: dict) -> Optional[float]:
+    """Estimated USD cost, or None if any model used has no known price (never a silent $0)."""
+    if any(_price(model) is None for model in usage):
+        return None
+    return sum(u["input_tokens"] / 1e6 * _price(m)[0] + u["output_tokens"] / 1e6 * _price(m)[1]
+               for m, u in usage.items())
+
+
+def format_cost(usage: dict) -> str:
+    cost = estimate_cost(usage)
+    if cost is not None:
+        return f"≈ ${cost:.4f}"
+    unpriced = ", ".join(m for m in usage if _price(m) is None)
+    return f"cost unknown for {unpriced} (add it to PRICE_PER_M)"

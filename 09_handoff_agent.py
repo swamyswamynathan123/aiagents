@@ -13,6 +13,7 @@ to the next agent or ends the conversation.
 
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 import re
 from typing import Annotated, List
 from dotenv import load_dotenv
@@ -25,7 +26,9 @@ from typing_extensions import TypedDict
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 
 # ---------------------------------------------------------------------------
 # State

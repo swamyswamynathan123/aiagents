@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .graph import ReportSession, estimate_cost  # noqa: E402
+from .graph import ReportSession, format_cost  # noqa: E402
 
 
 def progress(node: str, update: dict) -> None:
@@ -41,7 +41,7 @@ def main():
     print(f"\nStatus: {result['status']} | scores {result['scores']} | revisions {result['revisions']} | "
           f"research rounds {result['research_rounds']} | sources {len(result['references'])}")
     tokens = sum(u["input_tokens"] + u["output_tokens"] for u in result["usage"].values())
-    print(f"Tokens: {tokens:,} (≈ ${estimate_cost(result['usage']):.4f})\n")
+    print(f"Tokens: {tokens:,} ({format_cost(result['usage'])})\n")
     print(result["report"])
 
 

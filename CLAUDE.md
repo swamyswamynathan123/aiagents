@@ -12,7 +12,7 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 - LangGraph >= 1.2.0 — graph orchestration
 - LangChain >= 0.3.0 — LLM abstractions
 - LangSmith >= 0.2.0 — tracing (auto-enabled via env vars)
-- OpenAI gpt-4o-mini — LLM backend for all modules
+- OpenAI chat models — `gpt-4o-mini` by default, configurable with `AGENT_MODEL` (see Environment)
 - Tavily (`langchain-tavily`) — live web search backing the tools in modules 01, 02, 10
 - FAISS — in-memory vector store (module 14 only)
 
@@ -20,6 +20,8 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 - Python 3.11+, venv at `./venv/`
 - Activate: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Unix)
 - Required env vars in `.env`: `OPENAI_API_KEY`, `TAVILY_API_KEY`, `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`
+- Optional: `AGENT_MODEL`, `EVAL_JUDGE_MODEL`, `GUARDRAIL_MODEL` (default `gpt-4o-mini`). Add new models to `PRICE_PER_M` in `projects/research_report/graph.py`, or cost displays show "unknown"
+- Line endings: `.gitattributes` keeps LF everywhere except `*.bat` (CRLF)
 
 ## Module naming convention
 `##_<agent_type>.py` — numbered for learning progression, 01 (simplest) → 16 (most complex)
@@ -29,7 +31,7 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 - `interrupt()` from `langgraph.types` is the correct HITL API (not compile-time `interrupt_before` flags)
 - `Send()` from `langgraph.types` drives parallel fan-out (module 13)
 - `MemorySaver` is dev-only — use `PostgresSaver` in production
-- All modules use `load_dotenv()` and `gpt-4o-mini` by default
+- All modules use `load_dotenv()` and `MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")`; never hard-code a model name (`test_no_hardcoded_model_names` enforces it). The eval judge (`EVAL_JUDGE_MODEL`) and guardrail classifier (`GUARDRAIL_MODEL`) are configured separately, so changing the agent model doesn't change the checks
 - Tavily: `TavilySearch` from `langchain_tavily` is wrapped in `@tool` functions; each module carries its own `_format_results` helper (kept per-file to stay self-contained). Use `topic="news"`/`"finance"` for news/stock lookups. The client is built at import time, so a missing `TAVILY_API_KEY` fails on startup
 
 ## Running

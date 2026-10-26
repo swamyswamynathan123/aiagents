@@ -12,7 +12,7 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv()
 
-from projects.research_report.graph import MAX_QUESTIONS, ReportSession, estimate_cost  # noqa: E402
+from projects.research_report.graph import MAX_QUESTIONS, ReportSession, format_cost  # noqa: E402
 
 st.set_page_config(page_title="Research Reports", page_icon="📑", layout="wide")
 
@@ -117,7 +117,7 @@ if result["status"] == "done":
         st.metric("Review scores", " → ".join(map(str, result["scores"])) or "-")
         st.metric("Sources cited", len(result["references"]))
         st.metric("Revisions / research rounds", f"{result['revisions']} / {result['research_rounds']}")
-        st.metric("Tokens", f"{tokens:,}", f"≈ ${estimate_cost(result['usage']):.4f}", delta_color="off")
+        st.metric("Tokens", f"{tokens:,}", format_cost(result['usage']), delta_color="off")
         st.download_button("⬇️ Download Markdown", result["report"], file_name="report.md", use_container_width=True)
         if result["blocked_sources"]:
             with st.expander(f"🛡️ {len(result['blocked_sources'])} untrusted source(s) dropped"):

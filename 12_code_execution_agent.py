@@ -27,6 +27,8 @@ from typing_extensions import TypedDict
 
 load_dotenv()
 
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -124,7 +126,7 @@ class CodeExecState(TypedDict):
 # Nodes
 # ---------------------------------------------------------------------------
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0).bind_tools(TOOLS)
+_llm = ChatOpenAI(model=MODEL, temperature=0).bind_tools(TOOLS)
 
 
 def code_agent_node(state: CodeExecState) -> dict:

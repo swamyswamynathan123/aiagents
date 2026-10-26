@@ -8,6 +8,7 @@ Use cases: Q&A over internal docs, support bots grounded in a knowledge
 LangGraph equivalent: ../14_rag_agent.py (retrieve → generate graph)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import Optional
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
@@ -18,7 +19,9 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 _embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 # ---------------------------------------------------------------------------

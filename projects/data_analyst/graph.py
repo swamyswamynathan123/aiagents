@@ -19,6 +19,7 @@ Data analyst — the LangGraph graph.
 Patterns: structured output (11), code execution (12), autonomous agent (10),
 reflection (05), guardrails.
 """
+import os
 import uuid
 from pathlib import Path
 from typing import Annotated, List, Literal, Optional
@@ -131,7 +132,8 @@ CRITIC_PROMPT = (
     "approve); never list things that are correct."
 )
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 _understand = _llm.with_structured_output(AnalysisSpec)
 _critic = _llm.with_structured_output(Critique)
 _analyst = _llm.bind_tools([run_python, final_answer])

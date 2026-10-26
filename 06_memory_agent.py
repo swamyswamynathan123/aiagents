@@ -11,6 +11,7 @@ Architecture:
 
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 import re
 import uuid
 from typing import Annotated, List
@@ -26,7 +27,9 @@ from typing_extensions import TypedDict
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0.3)
 
 _FACT_PATTERNS = [
     (re.compile(r"\bmy name is (\w+)", re.IGNORECASE), "User's name is {}"),

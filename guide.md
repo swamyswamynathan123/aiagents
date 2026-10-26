@@ -571,6 +571,10 @@ judge bugs were found in this repo:
 - Every loop iteration and judge check is another LLM call, so budgets are also cost controls.
 - Use cheaper models for classification (routing, triage, injection checks), and keep stronger
   ones for generation where quality matters.
+- **Make the model a setting, not a constant.** Every agent here reads `AGENT_MODEL`, so trying a
+  new model is one environment variable plus an eval run. Keep the **judge model fixed**
+  (`EVAL_JUDGE_MODEL`) while you compare, or you're measuring two changes at once. Cost estimates
+  return "unknown" for unpriced models rather than a misleading $0.
 - Long-running patterns (04, 08, 10) benefit from streaming progress to the UI. A spinner for 30
   seconds feels broken.
 - Track token usage per run. The model responses include `usage_metadata`.

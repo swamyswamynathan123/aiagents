@@ -16,7 +16,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
 from projects.data_analyst.graph import MAX_EXECUTIONS, SAMPLE_CSV, AnalystSession  # noqa: E402
-from projects.research_report.graph import estimate_cost  # noqa: E402
+from projects.research_report.graph import format_cost  # noqa: E402
 
 st.set_page_config(page_title="Data Analyst", page_icon="📊", layout="wide")
 
@@ -118,5 +118,5 @@ for i, (q, r) in enumerate(st.session_state.analyst_history):
             st.code(e["output"], language="text")
     if i == 0:
         tokens = sum(u["input_tokens"] + u["output_tokens"] for u in r["usage"].values())
-        st.caption(f"Session tokens: {tokens:,} (≈ ${estimate_cost(r['usage']):.4f})")
+        st.caption(f"Session tokens: {tokens:,} ({format_cost(r['usage'])})")
     st.divider()

@@ -1,0 +1,9 @@
+# Store and check out text files with LF everywhere. This overrides a machine-wide
+# core.autocrlf=true, which otherwise warns about CRLF conversion on every commit.
+* text=auto eol=lf
+
+# cmd.exe parses batch files most reliably with CRLF
+*.bat text eol=crlf
+
+*.png binary
+*.jpg binary

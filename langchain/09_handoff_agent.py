@@ -8,6 +8,7 @@ Use cases: Customer service routing, specialist escalation, peer-to-peer
 LangGraph equivalent: ../09_handoff_agent.py (nodes returning Command(goto=...))
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 import re
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
@@ -17,7 +18,9 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0)
 
 # ---------------------------------------------------------------------------
 # Agent system prompts

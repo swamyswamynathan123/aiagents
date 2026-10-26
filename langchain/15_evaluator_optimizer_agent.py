@@ -8,6 +8,7 @@ Use cases: Marketing copy, prompt optimization, code quality loops, any
 LangGraph equivalent: ../15_evaluator_optimizer_agent.py (generator ⇄ evaluator graph)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -16,8 +17,10 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-_generator_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.8)  # creative
-_evaluator_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)    # deterministic judge
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_generator_llm = ChatOpenAI(model=MODEL, temperature=0.8)  # creative
+_evaluator_llm = ChatOpenAI(model=MODEL, temperature=0)    # deterministic judge
 
 # ---------------------------------------------------------------------------
 # Evaluator schema + rubric

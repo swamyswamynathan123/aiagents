@@ -7,6 +7,7 @@ Use cases: Comparing many options, bulk document analysis, multi-source
 LangGraph equivalent: ../13_parallel_agent.py (Send() fan-out + operator.add reducer)
 LangSmith tracing: automatic when LANGCHAIN_TRACING_V2=true is set in .env
 """
+import os
 from typing import List
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
@@ -15,7 +16,9 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")  # set AGENT_MODEL in .env to try another model
+
+_llm = ChatOpenAI(model=MODEL, temperature=0.3)
 
 # ---------------------------------------------------------------------------
 # Chains
