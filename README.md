@@ -18,7 +18,7 @@ cp .env.example .env    # macOS / Linux
 # (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
 # Optional: AGENT_MODEL=<openai chat model> to run every agent on another model
 
-# 3. Launch the web UI: the 16 patterns and the 3 capstones, in one app (localhost only)
+# 3. Launch the web UI: the 16 patterns and the 4 capstones, in one app (localhost only)
 start.bat               # Windows: also handles steps 1-2 on first run
 streamlit run main.py   # any OS, inside the venv
 
@@ -34,6 +34,7 @@ streamlit run app.py                            # the 16 patterns
 streamlit run projects/customer_support/ui.py   # support assistant
 streamlit run projects/research_report/ui.py    # research report generator
 streamlit run projects/data_analyst/ui.py       # data analyst over a CSV
+streamlit run projects/doc_qa/ui.py             # document Q&A over PDFs/Markdown
 
 # Or run any agent from the command line
 python 01_simple_tool_agent.py            # LangGraph version
@@ -53,6 +54,7 @@ python langchain/01_simple_tool_agent.py  # LangChain version
 | Tavily | `langchain-tavily>=0.2.0` | Live web search for tools (modules 01, 02, 10) |
 | FAISS | `faiss-cpu>=1.7.0` | In-memory vector store (module 14 only) |
 | Streamlit | `streamlit>=1.40.0` | Web UI for running each agent (`app.py`) |
+| pypdf | `pypdf` | PDF text extraction (document Q&A) |
 | Pydantic v2 | `pydantic>=2.0.0` | Type-safe state and structured output |
 
 ---
@@ -317,7 +319,7 @@ final = app.invoke(Command(resume=True), config)  # True = approve, False = reje
 
 **Key LangGraph concepts:** Two-node pipeline, external tool/library in node function, lazy initialization
 
-**Production upgrades:** Replace `FAISS` with Pinecone/Weaviate/pgvector; replace `KNOWLEDGE_BASE` list with a document loader pipeline.
+**Production upgrades:** Replace `FAISS` with Pinecone/Weaviate/pgvector; replace `KNOWLEDGE_BASE` list with a document loader pipeline. The [document Q&A capstone](projects/doc_qa/) shows the loader pipeline, hybrid search, re-ranking and a retrieval benchmark.
 
 **Use cases:** Document Q&A, internal knowledge bases, customer support with product documentation, legal/medical document analysis
 
@@ -416,12 +418,12 @@ from langgraph.graph import START, END, StateGraph     # graph building blocks
 ```
 aiagents/
 ├── CLAUDE.md                       ← Project guide for Claude Code
-├── plan.md                         ← Implementation plan
+├── plan.md                         ← Plan, status and roadmap
 ├── requirements.txt
 ├── .env.example
 ├── setup_venv.bat / setup_venv.sh
 ├── start.bat                       ← Windows launcher for the Streamlit app
-├── main.py                         ← Multipage Streamlit app: home, patterns, 3 capstones
+├── main.py                         ← Multipage Streamlit app: home, patterns, 4 capstones
 ├── .streamlit/config.toml          ← Binds the server to localhost
 ├── app.py                          ← Patterns page (LangGraph / LangChain switch)
 ├── langchain/                      ← Same 16 agents, LangChain-only (see below)
@@ -432,6 +434,7 @@ aiagents/
 ├── projects/customer_support/      ← Capstone: support assistant (LangGraph)
 ├── projects/research_report/       ← Capstone: research report generator (LangGraph)
 ├── projects/data_analyst/          ← Capstone: CSV data analyst with sandboxed pandas (LangGraph)
+├── projects/doc_qa/                ← Capstone: document Q&A with hybrid retrieval (LangGraph)
 ├── guide.md                        ← Patterns + design considerations (read this)
 ├── requirements-dev.txt            ← requirements.txt + pytest
 ├── .github/workflows/              ← CI: tests (every push), evals (manual)
@@ -484,7 +487,7 @@ loop-based flows, the LangChain versions are shorter.
 
 ---
 
-## Design Guide and Capstone
+## Design Guide and Capstones
 
 **[guide.md](guide.md)** explains each pattern in depth:
 - when to use it, the design decisions behind it, and how it fails;
@@ -510,6 +513,13 @@ Before answering, it checks that **every number in the answer appears in an actu
 output**, and an LLM critic reviews the method. It has a UI with CSV upload, charts and
 "show your work", 9 scenario evals against pandas-computed ground truth, and 51 offline tests.
 
+**[projects/doc_qa/](projects/doc_qa/)** is a LangGraph capstone for retrieval over real files. It
+ingests Markdown, text and PDF with section- and page-aware chunking, and quarantines passages
+containing injection text. It combines keyword (BM25) and vector search with rank fusion and an
+LLM re-ranker, rewrites follow-up questions, and answers with citations that are checked against
+the sources. It says "not in the documents" without calling the answer model. It has a
+**retrieval benchmark** (hit@1, recall@k, MRR per mode), 9 answer evals and 26 offline tests.
+
 ## Guardrails (`guardrails.py`)
 
 A shared safety layer that wraps any agent from either framework. The agent modules don't change.
@@ -519,7 +529,7 @@ A shared safety layer that wraps any agent from either framework. The agent modu
 | Input | Empty / over `max_input_chars` (4000) | Block |
 | Input | Prompt injection: regex heuristics, plus an optional LLM classifier for reworded attacks | Block |
 | Input | OpenAI moderation (`omni-moderation-latest`, free) | Block |
-| Input + output | PII: emails, phone numbers, card numbers (Luhn-checked), SSNs, IP addresses | Redact to `[EMAIL]` etc. |
+| Input + output | PII: emails, phone numbers, card numbers (Luhn-checked), SSNs, IP addresses | Redact to `[EMAIL]` etc. (configurable per app: `pii_types`, `pii_allow`) |
 | Output | OpenAI moderation on generated text | Block |
 
 ```python
@@ -594,3 +604,5 @@ of a pattern side by side. The runner exits with code 1 if any case fails, so it
 12. `10_autonomous_agent.py` — long-running agents
 13. `12_code_execution_agent.py` — code-in-the-loop
 14. `11_structured_output_agent.py` — extraction pipelines
+15. **Capstones** (`projects/`), which combine the patterns: customer support → document Q&A →
+    research reports → data analyst. Read the matching section of [guide.md](guide.md) alongside each.

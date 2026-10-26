@@ -5,7 +5,7 @@
 patterns re-implemented with LangChain only (no LangGraph) in `langchain/`.
 Each file is independently runnable with `python <filename>.py`. `app.py` is a Streamlit UI for both sets,
 `guardrails.py` adds input/output safety checks, and `evals/` scores every agent (LangSmith experiments).
-`projects/customer_support/`, `projects/research_report/` and `projects/data_analyst/` are multi-file LangGraph capstones combining several patterns.
+`projects/customer_support/`, `projects/research_report/`, `projects/data_analyst/` and `projects/doc_qa/` are multi-file LangGraph capstones combining several patterns.
 `guide.md` explains every pattern and the design decisions; update it when patterns or lessons change.
 
 ## Stack
@@ -37,7 +37,7 @@ Each file is independently runnable with `python <filename>.py`. `app.py` is a S
 ## Running
 ```bash
 start.bat                         # Windows: sets up venv/.env, launches the multipage app (main.py)
-streamlit run main.py             # one app: home, 16 patterns, 3 capstones (localhost only)
+streamlit run main.py             # one app: home, 16 patterns, 4 capstones (localhost only)
 pytest                            # offline unit tests (~25s, no API keys)
 python evals/run_evals.py         # all evals, both frameworks (~10 min)
 python guardrails.py              # guardrails demo
@@ -45,6 +45,8 @@ python -m projects.customer_support.demo       # capstone demo
 streamlit run projects/customer_support/ui.py  # capstone UI (chat + supervisor console)
 streamlit run projects/research_report/ui.py   # research capstone UI (plan review, live progress)
 streamlit run projects/data_analyst/ui.py      # data analyst UI (CSV upload, charts, show work)
+streamlit run projects/doc_qa/ui.py            # document Q&A UI (upload docs, retrieval modes, citations)
+python -m projects.doc_qa.retrieval_eval       # retrieval benchmark (hit@1, recall@k, MRR per mode)
 python 01_simple_tool_agent.py    # simplest — tool loop
 python langchain/01_simple_tool_agent.py  # same agent, LangChain-only
 python 07_human_in_loop_agent.py  # two-step: first invoke pauses, second resumes
@@ -75,7 +77,7 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 
 ## Shared support modules
 - `registry.py`: module loading + uniform calling interface (`make_runner`, `hitl_api`, LangGraph state adapters). Used by `app.py` and `evals/`; agents never import it
-- `guardrails.py`: `Guard(GuardrailConfig(...))` with `check_input` (length, prompt-injection regex + optional LLM classifier, OpenAI moderation, PII redaction) and `check_output` (PII redaction + moderation). `guard.wrap(run)` guards str/list[str] kwargs and the whole result; blocks raise `GuardrailBlocked`. Moderation fails open (warns) if the API errors
+- `guardrails.py`: `Guard(GuardrailConfig(...))` with `check_input` (length, prompt-injection regex + optional LLM classifier, OpenAI moderation, PII redaction) and `check_output` (PII redaction + moderation). `guard.wrap(run)` guards str/list[str] kwargs and the whole result; blocks raise `GuardrailBlocked`. Moderation fails open (warns) if the API errors. PII policy is per app: `pii_types` (which kinds) and `pii_allow` (exact values to keep)
 - The UI applies guardrails around agents (sidebar toggles); `PII_EXEMPT` in `app.py` turns off redaction for agents that need PII (11)
 
 ## Tests (`tests/`)
@@ -99,6 +101,7 @@ Project name: `aiagents-demo` (set via `LANGCHAIN_PROJECT`)
 - Tests in `tests/test_support.py`; reset the backend per test and use `build_app()` for an isolated graph
 - `research_report/`: `graph.py` (planner → plan_review interrupt → `Send` fan-out to `research` → writer ⇄ reviewer → finalize; `ReportSession` streams updates and tracks token usage), `search.py` (Tavily + drops results with injection patterns). Citations: code numbers sources, validates `[n]`, writes References — the model never writes URLs. Budgets: `MAX_QUESTIONS`, `MAX_RESEARCH_ROUNDS`, `MAX_REVISIONS`. Tests in `tests/test_research.py` (`FakeTavily.respond` scripts search results)
 - `data_analyst/`: `graph.py` (profile → understand `AnalysisSpec` → analyst ⇄ executor → verify → finalize; `AnalystSession`), `sandbox.py` (AST import allow-list, fresh `python -I` subprocess with stripped env, notebook-style replay of earlier ok cells + last-expression display, `save_chart()`), `verify.py` (every number in the answer must appear in an execution output). Sample data from `make_data.py` (deterministic). Tests in `tests/test_data_analyst.py` run real pandas in the sandbox
+- `doc_qa/`: `ingest.py` (md/txt/pdf → `Chunk` with section/page; contextual chunk headers; injected passages quarantined), `retrieval.py` (BM25 with light stemming, FAISS, RRF, LLM re-rank with relevance gate; modes `bm25|vector|hybrid|hybrid+rerank`), `graph.py` (input_guard → condense → retrieve → not_found | generate ⇄ check → finalize; retriever passed via run config, not state; `DocQASession`). Output guard keeps only PII quoted from cited sources (`pii_allow`). `retrieval_eval.py` is the labelled benchmark; keep `tests/test_doc_qa.py`'s BM25 regression guard passing. Sample docs from `make_docs.py` (includes a built-in PDF writer)
 
 ## Do not
 - Do not use `PostgresSaver` in these demos (requires a running Postgres instance)

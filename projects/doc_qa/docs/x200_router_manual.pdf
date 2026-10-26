@@ -1,0 +1,76 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 490 >>
+stream
+BT /F1 11 Tf 14 TL 60 760 Td (X200 Router User Manual) Tj T* () Tj T* (Page 1 - Getting started) Tj T* (Connect the WAN port to your modem with the included cable.) Tj T* (Power on the router and wait for the status LED to turn solid white \(about 2 minutes\).) Tj T* (Open the admin console at http://192.168.1.1 and sign in with the password) Tj T* (printed on the label under the router.) Tj T* (Firmware 3.2 and later use http://router.local instead \(see the release notes\).) Tj T* ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 351 >>
+stream
+BT /F1 11 Tf 14 TL 60 760 Td (Page 2 - Status LED) Tj T* () Tj T* (Solid white: connected to the internet.) Tj T* (Pulsing white: starting up or updating firmware. Do not unplug.) Tj T* (Solid amber: no internet connection. Check the modem and the WAN cable.) Tj T* (Blinking red: an error. Read the code in the admin console \(see page 3\).) Tj T* ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 429 >>
+stream
+BT /F1 11 Tf 14 TL 60 760 Td (Page 3 - Error codes) Tj T* () Tj T* (E101 - Overheating. Move the router to a ventilated place; it restarts when cool.) Tj T* (E204 - WAN link down. The modem is not responding. Restart the modem, then the router.) Tj T* (E310 - Firmware verification failed. Download the firmware again and retry the update.) Tj T* (E415 - Too many devices. The X200 supports up to 128 connected devices.) Tj T* ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 385 >>
+stream
+BT /F1 11 Tf 14 TL 60 760 Td (Page 4 - Reset and firmware) Tj T* () Tj T* (Restart: hold the reset button for 3 seconds.) Tj T* (Factory reset: hold the reset button for 15 seconds until the LED blinks amber.) Tj T* (A factory reset erases all settings, including Wi-Fi names and passwords.) Tj T* (Firmware updates are installed from Settings > Firmware > Check for updates.) Tj T* ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 13 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 357 >>
+stream
+BT /F1 11 Tf 14 TL 60 760 Td (Page 5 - Specifications and warranty) Tj T* () Tj T* (Wi-Fi 6E tri-band \(2.4, 5 and 6 GHz\), up to 5.4 Gbps combined.) Tj T* (Ports: one 2.5 Gbps WAN port, four 1 Gbps LAN ports, one USB-C port.) Tj T* (Coverage: up to 2,500 square feet.) Tj T* (Warranty: 2 years limited hardware warranty from the date of purchase.) Tj T* ET
+endstream
+endobj
+13 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000140 00000 n 
+0000000267 00000 n 
+0000000808 00000 n 
+0000000935 00000 n 
+0000001337 00000 n 
+0000001464 00000 n 
+0000001944 00000 n 
+0000002072 00000 n 
+0000002509 00000 n 
+0000002638 00000 n 
+0000003047 00000 n 
+trailer
+<< /Size 14 /Root 1 0 R >>
+startxref
+3145
+%%EOF

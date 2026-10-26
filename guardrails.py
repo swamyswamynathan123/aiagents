@@ -22,7 +22,7 @@ Run `python guardrails.py` for a demo.
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, FrozenSet, List, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -45,6 +45,10 @@ class GuardrailConfig:
     injection: bool = True
     injection_llm: bool = False  # extra LLM call per input; catches paraphrased attacks
     pii: bool = True
+    # Which PII types to redact (None = all). E.g. router manuals legitimately contain IP addresses.
+    pii_types: Optional[FrozenSet[str]] = None
+    # Exact values never redacted, e.g. contact details quoted from the user's own documents
+    pii_allow: FrozenSet[str] = frozenset()
     max_input_chars: int = 4000
     fail_open: bool = True       # if the moderation API errors, warn instead of blocking
 
@@ -80,12 +84,28 @@ _PII_PATTERNS = [
 ]
 
 
-def redact_pii(text: str) -> Tuple[str, List[str]]:
-    """Replace PII with [TYPE] placeholders. Returns (redacted_text, sorted list of types found)."""
+PII_TYPES = frozenset(name for name, _, _ in _PII_PATTERNS)
+
+
+def find_pii(text: str) -> List[str]:
+    """Every PII value in the text, as written."""
+    values = []
+    for _, pattern, validate in _PII_PATTERNS:
+        values += [m.group() for m in pattern.finditer(text) if not validate or validate(m)]
+    return values
+
+
+def redact_pii(text: str, types: Optional[FrozenSet[str]] = None,
+               allow: FrozenSet[str] = frozenset()) -> Tuple[str, List[str]]:
+    """Replace PII with [TYPE] placeholders. Returns (redacted_text, sorted list of types found).
+    `types` limits which kinds are redacted (default: all of PII_TYPES); values in `allow` are kept."""
     found = set()
     for name, pattern, validate in _PII_PATTERNS:
+        if types is not None and name not in types:
+            continue
+
         def _sub(m, name=name, validate=validate):
-            if validate and not validate(m):
+            if (validate and not validate(m)) or m.group() in allow:
                 return m.group()
             found.add(name)
             return f"[{name}]"
@@ -217,7 +237,7 @@ class Guard:
                 if v:
                     violations.append(v)
             if cfg.pii and not any(v.action == "block" for v in violations):
-                text, types = redact_pii(text)
+                text, types = redact_pii(text, cfg.pii_types, cfg.pii_allow)
                 if types:
                     violations.append(Violation("pii", "redacted " + ", ".join(types), "redact"))
         self._record("input", violations)
@@ -230,7 +250,7 @@ class Guard:
             found = set()
 
             def _redact(s):
-                s, types = redact_pii(s)
+                s, types = redact_pii(s, cfg.pii_types, cfg.pii_allow)
                 found.update(types)
                 return s
             result = _map_text(result, _redact, skip_human=True)

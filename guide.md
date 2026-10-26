@@ -2,8 +2,9 @@
 
 This guide explains the agent design patterns in this repository, when to use each one, and the
 design decisions behind them. It covers the 16 pattern modules (LangGraph and LangChain versions),
-the shared guardrails, evals and tests, and three capstones that combine several patterns into
-real applications: a customer support assistant, a research report generator and a data analyst.
+the shared guardrails, evals and tests, and four capstones that combine several patterns into
+real applications: a customer support assistant, a research report generator, a data analyst and
+document Q&A over real files.
 
 It is written for developers who know Python and have called an LLM API before, and who want to
 build agents that behave predictably. Wherever possible, the points are tied to something that
@@ -22,7 +23,8 @@ actually happened while building this repo. Several sections describe bugs we hi
 9. [Capstone: customer support assistant](#9-capstone-customer-support-assistant)
 10. [Capstone: research report generator](#10-capstone-research-report-generator)
 11. [Capstone: data analyst](#11-capstone-data-analyst)
-12. [Lessons learned](#12-lessons-learned)
+12. [Capstone: document Q&A](#12-capstone-document-qa)
+13. [Lessons learned](#13-lessons-learned)
 
 ---
 
@@ -73,7 +75,8 @@ Start at the top and stop at the first "yes":
 
 1. **Is the output a fixed transformation of the input?** Use a single chain or
    **structured output (11)**. No agent is needed.
-2. **Does the answer depend on a known document set?** Use **RAG (14)**.
+2. **Does the answer depend on a known document set?** Use **RAG (14)**. For real files, see
+   the document Q&A capstone (section 12): chunking, hybrid search, re-ranking and retrieval metrics.
 3. **Are there a few distinct kinds of request, each with its own handling?** Use a **router (03)**.
 4. **Does the model need live data or actions, and decide which ones?** Use a **tool loop (01/02)**.
 5. **Does output quality improve with critique?** Use **reflection (05)**, or
@@ -88,7 +91,7 @@ Start at the top and stop at the first "yes":
 
 Real applications usually combine several of these. The support capstone uses guardrails + 03 + 01 +
 09 + 14 + 06 + 07. The research capstone uses 04 + 07 + 13 + 02 + 15 + 08 + guardrails. The data analyst uses 11 + 12 + 10 + 05 +
-guardrails.
+guardrails. Document Q&A uses 14 + 03 + 06 + 11 + 05 + guardrails.
 
 ---
 
@@ -113,7 +116,7 @@ the model's text is the answer.
   calling `eval`. Never `eval` model output without restrictions like this.
 - **Tool queries matter as much as prompts.** `get_weather` originally searched "current weather in
   {city}", which returned monthly climate averages. Searching "{city} weather today temperature"
-  over the past day (`time_range="day"`) returns today's conditions. The eval suite caught this (section 10).
+  over the past day (`time_range="day"`) returns today's conditions. The eval suite caught this (section 13).
 - **Failure mode: endless tool calls.** The LangChain loop is capped. The LangGraph version
   relies on the model eventually answering, which is acceptable for a demo but not for production
   (section 7.1).
@@ -208,8 +211,9 @@ then the model answers using **only** that context. In LangChain this is the cla
   right document retrieved?") and evaluation of retrieval separately from generation.
 - **`k` is a trade-off.** Too few documents miss context; too many dilute it and cost tokens.
 - **Build the index lazily** (`_vectorstore is None`), so importing the module doesn't make an API call.
-- **Production:** replace in-memory FAISS with a persistent vector DB, add chunking, metadata
-  filters and re-ranking.
+- **Production:** replace in-memory FAISS with a persistent vector DB, and add chunking, metadata
+  filters and re-ranking. The document Q&A capstone (section 12) does all of these except the
+  persistent DB, and measures retrieval on its own.
 
 ### 16 — Chatbot
 
@@ -244,7 +248,7 @@ and you want to inspect or adjust it.
 **Design notes**
 - **Budget the loop.** After `MAX_STEPS = 10` executed steps, the replanner is told the budget is
   used up and must answer. If it still doesn't, the step results become the answer. Without this,
-  the LangGraph version ran for more than 7 minutes (section 10).
+  the LangGraph version ran for more than 7 minutes (section 13).
 - **Handle an empty plan.** If the replanner returns no steps, finish with what you have rather
   than crashing (LangGraph) or returning no answer (LangChain). Both bugs existed and were found by tests.
 - **Watch what the replanner sees.** Step results are truncated to 200 characters, so the replanner
@@ -326,7 +330,7 @@ the active agent's chain.
 **Design notes**
 - **Cap handoffs.** Two agents that each believe the issue belongs to the other will bounce it
   back and forth forever. The LangGraph version had no cap and looped about 10,000 times until
-  LangGraph's recursion limit (section 10). Both versions now stop at `MAX_HANDOFFS = 3`.
+  LangGraph's recursion limit (section 13). Both versions now stop at `MAX_HANDOFFS = 3`.
 - **Parse handoffs strictly.** A regex anchored at the start (`^HANDOFF\s*:\s*(\w+)`) and a
   whitelist of valid agents keep the model from inventing destinations.
 - **Prefer tool calls to magic strings in real systems.** The capstone uses a
@@ -367,7 +371,7 @@ researching several angles.
   Production systems usually have an LLM summarize facts, plus rules about what may be stored.
 - **The store must be annotated as `BaseStore` exactly.** LangGraph 1.2 only injects the store into
   a node if the parameter is typed `store: BaseStore`. With `store: InMemoryStore`, every call
-  failed with "missing 1 required keyword-only argument: 'store'" (section 10).
+  failed with "missing 1 required keyword-only argument: 'store'" (section 13).
 - **Persistence:** `MemorySaver` and `InMemoryStore` disappear when the process restarts. Use
   `SqliteSaver` for a single machine, or Postgres-backed savers and stores for production.
 - **Privacy:** long-term memory is personal data. Decide what to keep, for how long, and how users can delete it.
@@ -493,14 +497,21 @@ verdicts, scores, plans. Use `Literal` for choices, `Field(description=...)` for
   the tests now include known false positives that must not be redacted.
 - **Fail open or closed?** If the moderation API is down, `fail_open=True` logs a warning and
   continues. Fail closed for high-risk applications.
-- **Some agents need exemptions.** Agent 11 extracts contact details, so PII redaction would break
-  it. Make the policy configurable per agent.
+- **PII policy depends on the application.** Agent 11 extracts contact details, so the UI turns PII
+  redaction off for it. Document Q&A showed the subtler version: the output guard redacted a
+  router's documented IP address and a published support email, both taken from the user's own
+  documents. `GuardrailConfig` now supports `pii_types` (which kinds to redact) and `pii_allow`
+  (exact values to keep). Document Q&A allows only PII that appears word for word in the passages
+  an answer cites, so the documentation's contents get through while invented or input PII is
+  still redacted.
 - **Direct vs indirect injection.** `Guard` checks **user** input. Web pages returned by Tavily can
   also contain instructions ("ignore previous instructions…"), which is *indirect* injection. The
   research capstone handles this by scanning every search result and dropping any that contain
   injection patterns *before* the model sees them. It also tells the model that source text is
   untrusted, and only passes the writer the extracted facts, never raw web text (section 10.3).
-  The pattern modules 01, 02 and 10 don't do this yet.
+  Document Q&A applies the same idea to uploaded files: passages with injection patterns are
+  **quarantined at ingestion** and reported, so they never reach the index. The pattern modules
+  01, 02 and 10 don't do this yet.
 - **Regexes are a first layer only.** They catch the obvious attacks cheaply. The LLM classifier
   catches paraphrases at the cost of one extra call per message.
 
@@ -515,6 +526,14 @@ verdicts, scores, plans. Use `Literal` for choices, `Field(description=...)` for
   sources. In the first real research report, one claim (lithium-ion batteries "last two years")
   was faithfully copied from a low-quality web page. Source quality needs its own defence:
   domain allow-lists, preferring primary sources, or asking for two independent sources per key claim.
+- **Benchmark retrieval with labelled questions.** Each question names its gold passage by a phrase
+  the passage contains, so the labels survive re-chunking. Report hit@1, recall@k and MRR per
+  retrieval mode (`python -m projects.doc_qa.retrieval_eval`).
+- **Hybrid search isn't automatically better.** On the sample documents, vector search alone scored
+  100% hit@1, and fusing in BM25 lowered it to 94% (section 12.4). Hybrid earns its keep on large
+  collections full of exact identifiers. Measure on your own documents.
+- **Use re-ranking as a relevance gate.** Grading each candidate passage lets the system say
+  "not in the documents" without calling the answer model at all.
 
 ### 7.8 Testing strategy: unit tests vs evals
 
@@ -982,7 +1001,137 @@ Otherwise the checker produces noise, and noisy warnings soon get ignored.
 
 ---
 
-## 12. Lessons learned
+## 12. Capstone: document Q&A
+
+`projects/doc_qa/` answers questions about a set of documents (Markdown, text or PDF) with
+citations, and says so when the documents don't cover a question. Run it with
+`streamlit run projects/doc_qa/ui.py` (upload files, switch retrieval mode, inspect passages)
+or `python -m projects.doc_qa.demo`.
+
+### 12.1 Architecture
+
+```mermaid
+flowchart TD
+    subgraph Ingestion [once per document set]
+        F[files: .md .txt .pdf] --> SP[split by heading / page<br/>RecursiveCharacterTextSplitter]
+        SP --> Q{injection<br/>pattern?}
+        Q -- yes --> QU[quarantined + reported]
+        Q -- no --> IX[BM25 index + FAISS vectors<br/>contextual chunk headers]
+    end
+    START([question]) --> IG[input_guard]
+    IG -- blocked --> E1([END])
+    IG --> CO[condense<br/>follow-up → standalone]
+    CO --> RE[retrieve<br/>BM25 + vector → RRF → LLM re-rank]
+    IX -.-> RE
+    RE -- nothing relevant --> NF[not_found]
+    RE --> GE[generate<br/>numbered sources, cite n]
+    GE -- found=false --> NF
+    GE --> CH[check<br/>citations valid? claims supported?]
+    CH -- problems, 1 retry --> GE
+    CH --> FI[finalize<br/>citations · output guard · remember turn]
+    NF --> FI
+    FI --> E2([END])
+```
+
+| Pattern | In the capstone |
+|---------|-----------------|
+| RAG (14) | Section- and page-aware ingestion, hybrid retrieval, re-ranking |
+| Router (03) | After retrieval: nothing relevant → `not_found`, skipping generation |
+| Memory (06) | Checkpointed conversation; `condense` rewrites follow-ups |
+| Structured output (11) | `Answer`, `RerankResult`, `Groundedness` |
+| Reflection (05) | `check`: code checks citations, an LLM checks support; one retry |
+| Guardrails | Question guard, quarantine at ingestion, source-aware output guard |
+
+### 12.2 Ingestion
+
+- **Split along the document's own structure first.** Markdown is split on headings, so each chunk
+  carries its section path (`Expenses > Receipts and deadlines`). PDFs are split by page, so each
+  chunk carries its page number. Only long sections are split further (700 characters, 100 overlap).
+- **Contextual chunk headers.** What gets indexed is `"<document title> > <section>\n<text>"`. A
+  passage that just says "Receipts are required for any expense over $25" becomes findable by
+  "expense policy" too.
+- **Citations come from metadata, not the model.** The UI shows "Employee Handbook — Expenses >
+  Receipts and deadlines" or "X200 Router User Manual — p. 3" from the chunk's metadata.
+- **Documents are untrusted input.** Passages with injection patterns are quarantined and listed in
+  the UI, rather than silently indexed.
+- **Unreadable files are skipped and reported**, for example a corrupt PDF or an unsupported type.
+
+### 12.3 Answering
+
+1. **Condense.** "And how many can I carry over?" becomes "How many days of paid time off can I
+   carry over each year?", because a follow-up retrieves nothing useful on its own. A first
+   question skips this step and the extra LLM call.
+2. **Retrieve.** BM25 and vector rankings are merged with **reciprocal rank fusion** (score = Σ
+   1/(60 + rank)). That avoids comparing BM25 scores with cosine similarities. The top 12 are then
+   **re-ranked** in one LLM call that grades each passage 0–3, and passages below 2 are dropped.
+3. **Gate.** If nothing survives re-ranking, the answer is "not in the documents", listing which
+   documents exist, and the answer model is never called. The answer model can also decline
+   (`found=false`).
+4. **Generate.** The model sees numbered sources and must cite `[n]`. If sources disagree, it
+   prefers the newer version and says so: the manual gives the old admin address and the 3.2
+   release notes the new one.
+5. **Check.** Code confirms every citation points at a real source, and an LLM checks that each
+   claim is supported by the source it cites. Problems get one retry, then a visible ⚠️ note.
+
+The retriever is passed to the graph in the **run config** rather than the state, so the checkpointer
+never tries to save an index.
+
+### 12.4 Measuring retrieval
+
+`retrieval_eval.py` holds 16 labelled questions, mixing exact codes, paraphrases, lookups and a
+threshold question. On the sample documents (19 chunks, k=4):
+
+| Mode | hit@1 | recall@4 | MRR |
+|------|------:|---------:|----:|
+| bm25 (no stemming, first run) | 81% | 94% | 0.88 |
+| bm25 (light stemming) | 81% | 100% | 0.91 |
+| vector | 100% | 100% | 1.00 |
+| hybrid | 94% | 100% | 0.97 |
+| hybrid+rerank | 100% | 100% | 1.00 |
+
+What the numbers showed:
+- **Keyword search needs word forms.** BM25 missed "minimum password length" because the policy
+  says "Passwords". Light plural stemming fixed recall. It still can't match "vacation" to "PTO",
+  which is the job embeddings are for.
+- **Vector search is strong on small, clean documents**, and fusion slightly *lowered* top-1
+  accuracy: BM25 ranked the release note that mentions "error E204" above the manual's error-code
+  table. Hybrid search pays off on large collections where many passages look alike and exact
+  identifiers decide the match. That needs measuring on your own documents, not assuming.
+- **Re-ranking recovers the order and enables refusal.** It costs one extra LLM call per question.
+
+### 12.5 What the first runs taught us
+
+- **The output guard redacted the right answer.** For "What address opens the admin console?", the
+  reply came back as `http://[IP_ADDRESS]`, and the phishing answer lost `security@northwind.example`.
+  Both are documentation, not personal data. Turning PII redaction off would be wrong, because
+  documents can contain real personal data. The fix: **keep only PII that appears word for word in
+  the passages the answer cites**, and redact anything else (from the question, or invented).
+  `GuardrailConfig` gained `pii_types` and `pii_allow` for this.
+- **Rewrite follow-ups before retrieving.** In the demo, "And how many of those days can I carry
+  over?" was searched as "How many days of paid time off can I carry over each year?". On this
+  small document set the raw follow-up happens to retrieve the right passage too, because it says
+  "carry over". But pronouns and ellipsis ("what about it?", "and for him?") carry no searchable
+  terms at all, so rewriting is the safe default. It costs one small LLM call, and only on
+  follow-ups.
+
+### 12.6 Results and tests
+
+- **9 answer scenarios** (`python -m projects.doc_qa.evals`): facts with the right cited document,
+  an exact error code, a PDF page, a follow-up, conflicting versions (must give `router.local`),
+  threshold reasoning ($40 taxi vs $25 receipts), a contact email, an out-of-scope refusal and a
+  blocked injection. All passed against the real API, after the PII fix.
+- **The retrieval benchmark** above, using real embeddings.
+- **26 offline tests** (`tests/test_doc_qa.py`) cover:
+  - section and page metadata, quarantine, and skipped files;
+  - the tokenizer and BM25, rank fusion, and re-rank filtering;
+  - a **BM25 regression guard** (recall@4 must stay 100% on the benchmark);
+  - citation retry and concerns, refusal without calling the answer model, and follow-up rewriting;
+  - per-session memory, injection blocking, and the source-aware PII rule;
+  - the UI.
+
+---
+
+## 13. Lessons learned
 
 Every one of these happened while building this repo.
 
@@ -1005,6 +1154,9 @@ Every one of these happened while building this repo.
 | Analyst queried 2022-2024 for "Q4" | Profile didn't show the data's date range | Date ranges in the profile; plan resolves periods to explicit dates | Evals (wrong answer) |
 | Critic called 2025 "the future" and rejected over style | Checker lacked date context and a failure standard | Today's date + profile in the prompt; reject only real errors | Evals (status checks) |
 | Charts sometimes missing | Model forgot `save_chart()` | Auto-save open figures, as notebooks do | Evals (min charts) |
+| Output guard redacted a documented IP and support email | PII rules were global, not per application | `pii_types`/`pii_allow`; keep PII quoted from cited sources | Demo run, then evals |
+| BM25 missed "password" vs "Passwords" | No stemming | Light plural stemming | Retrieval benchmark |
+| Hybrid search ranked worse than vector alone | Fusion let BM25 promote a near-duplicate passage | Documented; re-ranking restores the order | Retrieval benchmark |
 | Research report repeated a dubious claim | Grounded ≠ true: a low-quality source | Documented; source-quality controls (7.7) | Reading the first report |
 
 **Overall:** most bugs were in **control flow and wiring**, not in prompts. They appeared when

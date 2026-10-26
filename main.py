@@ -1,5 +1,5 @@
 """
-One Streamlit app for everything in this repo: the 16 agent patterns and the three capstones.
+One Streamlit app for everything in this repo: the 16 agent patterns and the four capstones.
 Run: streamlit run main.py   (or double-click start.bat on Windows)
 
 Each page is still a standalone script (e.g. `streamlit run projects/data_analyst/ui.py` works on
@@ -23,6 +23,8 @@ def home():
          "reviewer loop, and citations checked by code."),
         ("projects/data_analyst/ui.py", "📊 Data analyst", "Pandas in a sandbox, numbers verified against code "
          "output, charts and \"show your work\"."),
+        ("projects/doc_qa/ui.py", "📚 Document Q&A", "Ingest PDFs and Markdown, hybrid search with re-ranking, "
+         "cited answers, and a retrieval benchmark."),
     ]
     for col, (path, title, text) in zip(st.columns(len(cards)), cards):
         with col.container(border=True):
@@ -39,6 +41,7 @@ pages = {
         st.Page("projects/customer_support/ui.py", title="Customer support", icon="🎧", url_path="support"),
         st.Page("projects/research_report/ui.py", title="Research reports", icon="📑", url_path="research"),
         st.Page("projects/data_analyst/ui.py", title="Data analyst", icon="📊", url_path="analyst"),
+        st.Page("projects/doc_qa/ui.py", title="Document Q&A", icon="📚", url_path="docs"),
     ],
 }
 st.navigation(pages).run()

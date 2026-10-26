@@ -1,45 +1,62 @@
-# LangGraph AI Agents — Implementation Plan
+# Project Plan and Status
 
 ## Goal
-16 self-contained Python modules demonstrating every major LangGraph agent pattern,
-with LangSmith tracing and OpenAI as the LLM backend.
+A learning repository for agent design: 16 self-contained modules showing the major agent
+patterns in LangGraph and LangChain, capstone applications that combine them, and the testing,
+evaluation and guardrail practices that make agents dependable. The design reasoning lives in
+[guide.md](guide.md); how to run everything is in [README.md](README.md).
 
-## Agent Inventory
+## Delivered
 
-| # | Module | Pattern | Use Cases |
-|---|--------|---------|-----------|
-| 01 | simple_tool_agent | Manual StateGraph tool loop | Learning LangGraph mechanics |
-| 02 | react_agent | ReAct prebuilt | General-purpose tool-using assistant |
-| 03 | router_agent | Conditional edge routing | Query classification, intent routing |
-| 04 | planning_agent | Plan-and-Execute | Multi-step task decomposition |
-| 05 | reflection_agent | Generator + Critic loop | Self-improving content generation |
-| 06 | memory_agent | MemorySaver + InMemoryStore | Persistent multi-turn conversations |
-| 07 | human_in_loop_agent | interrupt() / Command(resume) | Approval gates, sensitive operations |
-| 08 | multi_agent_supervisor | Supervisor pattern | Complex multi-role workflows |
-| 09 | handoff_agent | Agent-to-agent handoff | Customer service routing |
-| 10 | autonomous_agent | Long-running self-directed | Background research, report generation |
-| 11 | structured_output_agent | with_structured_output() | Data extraction from unstructured text |
-| 12 | code_execution_agent | LLM writes + runs code | Data analysis, scripting assistants |
-| 13 | parallel_agent | Send() fan-out map-reduce | Batch processing, parallel analysis |
-| 14 | rag_agent | Retrieval-Augmented Generation | Document Q&A, knowledge bases |
-| 15 | evaluator_optimizer_agent | Generate → Judge → Refine | Marketing copy, legal/technical writing |
-| 16 | chatbot_agent | Basic multi-turn conversation | Customer bots, FAQ assistants |
+| Phase | What | Where |
+|-------|------|-------|
+| 1 | 16 pattern modules (LangGraph) | `01_*.py` … `16_*.py` |
+| 2 | Live web search via Tavily instead of mocked data (01, 02, 10) | `langchain-tavily` |
+| 3 | Streamlit UI for every pattern | `app.py` |
+| 4 | The same 16 patterns in LangChain only (no LangGraph) | `langchain/` |
+| 5 | Guardrails: injection, moderation, PII, length | `guardrails.py` |
+| 6 | Evals with LangSmith experiments and a red-team suite | `evals/` |
+| 7 | Offline unit tests with a scripted fake LLM; CI | `tests/`, `.github/workflows/` |
+| 8 | Capstone: customer support assistant | `projects/customer_support/` |
+| 9 | Capstone: research report generator | `projects/research_report/` |
+| 10 | Capstone: data analyst over CSV | `projects/data_analyst/` |
+| 11 | Design guide | `guide.md` |
+| 12 | Combined multipage app, localhost only | `main.py`, `.streamlit/config.toml` |
+| 13 | Configurable models (`AGENT_MODEL`), line-ending normalization | `.env.example`, `.gitattributes` |
+| 14 | Capstone: document Q&A with hybrid retrieval and a retrieval benchmark | `projects/doc_qa/` |
 
-## Setup
-1. Run `setup_venv.bat` (Windows) or `bash setup_venv.sh` (Unix)
-2. Copy `.env.example` → `.env`, fill in API keys
-3. Run any module: `python 01_simple_tool_agent.py`
+## Pattern coverage
 
-## Stack
-- LangGraph >= 1.2.0 (graph orchestration)
-- LangChain >= 0.3.0 (LLM abstractions)
-- LangSmith >= 0.2.0 (tracing / observability)
-- OpenAI >= 1.59.0 (LLM backend, gpt-4o-mini)
-- FAISS (in-memory vector store for RAG module)
+| # | Pattern | Module | Used in capstones |
+|---|---------|--------|-------------------|
+| 01 | Tool loop | simple_tool_agent | support, data analyst |
+| 02 | ReAct / web tools | react_agent | research |
+| 03 | Router | router_agent | support, document Q&A |
+| 04 | Plan-and-execute | planning_agent | research |
+| 05 | Reflection | reflection_agent | data analyst, document Q&A |
+| 06 | Memory | memory_agent | support, document Q&A |
+| 07 | Human-in-the-loop | human_in_loop_agent | support, research |
+| 08 | Supervisor | multi_agent_supervisor | research |
+| 09 | Handoff | handoff_agent | support |
+| 10 | Autonomous agent | autonomous_agent | data analyst |
+| 11 | Structured output | structured_output_agent | data analyst, document Q&A |
+| 12 | Code execution | code_execution_agent | data analyst |
+| 13 | Parallel fan-out | parallel_agent | research |
+| 14 | RAG | rag_agent | support, document Q&A |
+| 15 | Evaluator-optimizer | evaluator_optimizer_agent | research |
+| 16 | Chatbot | chatbot_agent | support |
 
-## Key API Notes
-- `create_react_agent` from `langgraph.prebuilt` is deprecated in 1.2.x
-- `interrupt()` from `langgraph.types` is the stable HITL API
-- `Send()` from `langgraph.types` is the fan-out primitive
-- `MemorySaver` is for dev only; use `PostgresSaver` in production
-- Keep `thread_id` under 255 characters
+## Roadmap (not started)
+- Scheduled real-API evals with pass-rate tracking; repeated runs for flaky cases
+- Indirect-injection filtering on tool output in pattern modules 01, 02 and 10
+- Persistent state (`SqliteSaver`) so paused approvals and conversations survive restarts
+- Per-session spending caps
+- Container sandbox for model-written code
+- Replace deprecated `RunnableWithMessageHistory` in `langchain/06` and `16`; bump GitHub Actions versions
+- `start.sh` for macOS/Linux; Dependabot with CI-gated upgrades
+- Further capstones: a coding agent that fixes failing tests; a durable ops incident responder
+
+## Constraints (see CLAUDE.md)
+- Pattern modules stay single-file and runnable on their own; capstones are multi-file packages
+- External services: OpenAI and Tavily only; other tools are mocked
+- No `PostgresSaver` (needs a running database)

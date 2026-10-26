@@ -10,7 +10,7 @@ if not exist venv\Scripts\python.exe (
 )
 call venv\Scripts\activate.bat
 
-python -c "import streamlit, langgraph, langchain_tavily, faiss, pandas, matplotlib" 2>nul
+python -c "import streamlit, langgraph, langchain_tavily, faiss, pandas, matplotlib, pypdf" 2>nul
 if errorlevel 1 (
     echo Installing dependencies...
     pip install -r requirements.txt || goto :error
