@@ -1,0 +1,7 @@
+# Applies to every `streamlit run ...` started from the repo root.
+[server]
+# Only this machine can reach the app. The agents spend API credit and one runs model-written code.
+address = "localhost"
+
+[browser]
+gatherUsageStats = false

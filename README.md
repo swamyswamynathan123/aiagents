@@ -17,9 +17,9 @@ cp .env.example .env    # macOS / Linux
 # Edit .env and fill in OPENAI_API_KEY, TAVILY_API_KEY and LANGCHAIN_API_KEY
 # (free Tavily key: https://app.tavily.com — used by modules 01, 02, 10)
 
-# 3. Launch the web UI (all 16 agents)
+# 3. Launch the web UI: the 16 patterns and the 3 capstones, in one app (localhost only)
 start.bat               # Windows: also handles steps 1-2 on first run
-streamlit run app.py    # any OS, inside the venv
+streamlit run main.py   # any OS, inside the venv
 
 # Run the offline unit tests (no API keys, ~25s)
 pip install -r requirements-dev.txt
@@ -27,6 +27,12 @@ pytest
 
 # Run the evals (both frameworks + guardrails red-team suite)
 python evals/run_evals.py
+
+# Each page also runs on its own
+streamlit run app.py                            # the 16 patterns
+streamlit run projects/customer_support/ui.py   # support assistant
+streamlit run projects/research_report/ui.py    # research report generator
+streamlit run projects/data_analyst/ui.py       # data analyst over a CSV
 
 # Or run any agent from the command line
 python 01_simple_tool_agent.py            # LangGraph version
@@ -413,13 +419,19 @@ aiagents/
 ├── requirements.txt
 ├── .env.example
 ├── setup_venv.bat / setup_venv.sh
-├── start.bat                       ← Windows launcher for the Streamlit UI
-├── app.py                          ← Streamlit UI (LangGraph / LangChain switch)
+├── start.bat                       ← Windows launcher for the Streamlit app
+├── main.py                         ← Multipage Streamlit app: home, patterns, 3 capstones
+├── .streamlit/config.toml          ← Binds the server to localhost
+├── app.py                          ← Patterns page (LangGraph / LangChain switch)
 ├── langchain/                      ← Same 16 agents, LangChain-only (see below)
 ├── registry.py                     ← Shared agent loader/adapters (UI + evals)
 ├── guardrails.py                   ← Input/output guardrails
 ├── evals/                          ← Eval cases + runner (LangSmith experiments)
 ├── tests/                          ← Offline pytest suite (fake LLM)
+├── projects/customer_support/      ← Capstone: support assistant (LangGraph)
+├── projects/research_report/       ← Capstone: research report generator (LangGraph)
+├── projects/data_analyst/          ← Capstone: CSV data analyst with sandboxed pandas (LangGraph)
+├── guide.md                        ← Patterns + design considerations (read this)
 ├── requirements-dev.txt            ← requirements.txt + pytest
 ├── .github/workflows/              ← CI: tests (every push), evals (manual)
 ├── 01_simple_tool_agent.py         ← Manual tool loop (foundation)
@@ -470,6 +482,32 @@ persistence across processes, and graph-level streaming and visualization. For s
 loop-based flows, the LangChain versions are shorter.
 
 ---
+
+## Design Guide and Capstone
+
+**[guide.md](guide.md)** explains each pattern in depth:
+- when to use it, the design decisions behind it, and how it fails;
+- cross-cutting concerns: loop budgets, tool authorization, guardrails, evals, observability, security;
+- when to choose LangGraph vs LangChain;
+- a lessons-learned table of the real bugs found while building this repo.
+
+**[projects/customer_support/](projects/customer_support/)** is a LangGraph capstone that
+combines guardrails, a router, tool loops, handoffs, RAG, two kinds of memory and human approval
+into one support assistant. It has a chat UI with a supervisor console, 11 scenario evals and 25
+offline tests.
+
+**[projects/research_report/](projects/research_report/)** is a LangGraph capstone that turns a
+topic into a cited report. It plans sub-questions (with optional human review of the plan),
+researches them in parallel on the web while dropping injected pages, and runs a writer and
+reviewer loop within budgets. Citations are numbered and checked by code. It has a
+live-progress UI with token and cost tracking, 5 scenario evals and 16 offline tests.
+
+**[projects/data_analyst/](projects/data_analyst/)** is a LangGraph capstone that answers
+questions about a CSV by writing pandas code and running it in a sandbox. The sandbox uses an
+allow-list of imports, isolated processes and no API keys, and it works like a notebook.
+Before answering, it checks that **every number in the answer appears in an actual code
+output**, and an LLM critic reviews the method. It has a UI with CSV upload, charts and
+"show your work", 9 scenario evals against pandas-computed ground truth, and 51 offline tests.
 
 ## Guardrails (`guardrails.py`)
 

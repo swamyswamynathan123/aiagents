@@ -1,6 +1,7 @@
 @echo off
-REM Launch the Streamlit frontend for all 16 LangGraph agents.
+REM Launch the Streamlit app: the 16 agent patterns and the three capstone projects.
 REM First run creates the venv, installs requirements, and creates .env from .env.example.
+REM The server only listens on localhost (also set in .streamlit\config.toml).
 cd /d "%~dp0"
 
 if not exist venv\Scripts\python.exe (
@@ -9,7 +10,7 @@ if not exist venv\Scripts\python.exe (
 )
 call venv\Scripts\activate.bat
 
-python -c "import streamlit, langgraph, langchain_tavily" 2>nul
+python -c "import streamlit, langgraph, langchain_tavily, faiss, pandas, matplotlib" 2>nul
 if errorlevel 1 (
     echo Installing dependencies...
     pip install -r requirements.txt || goto :error
@@ -23,7 +24,7 @@ if not exist .env (
     exit /b 1
 )
 
-streamlit run app.py
+streamlit run main.py --server.address localhost
 exit /b %errorlevel%
 
 :error

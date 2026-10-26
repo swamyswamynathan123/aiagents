@@ -35,6 +35,7 @@ AGENT_NUMS = [f"{n:02d}" for n in range(1, 17)]
 def _reset_fakes(monkeypatch):
     fakes.script.reset()
     fakes.FakeTavily.queries.clear()
+    fakes.FakeTavily.respond = None
     monkeypatch.setattr(guardrails, "moderate", lambda text: None)  # no network
 
 

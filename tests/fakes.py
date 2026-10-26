@@ -94,7 +94,8 @@ class FakeChat(BaseChatModel):
                 name = order[used % len(order)]
                 msg = self._tool_call(name, TOOL_ARGS[name])
             else:
-                msg = AIMessage(content=f"FAKE answer after {used} tool calls")
+                text = script.reply(system, human) if script.reply else f"FAKE answer after {used} tool calls"
+                msg = AIMessage(content=text)
         elif script.reply:
             msg = AIMessage(content=script.reply(system, human))
         else:
@@ -104,14 +105,19 @@ class FakeChat(BaseChatModel):
 
 class FakeTavily:
     queries: List[dict] = []
+    respond: Optional[Callable[[dict], Any]] = None  # tests can override the whole response
 
     def __init__(self, **kwargs):
         pass
 
     def invoke(self, payload):
         FakeTavily.queries.append(payload)
+        if FakeTavily.respond:
+            return FakeTavily.respond(payload)
+        slug = "-".join(payload["query"].lower().split())[:40]
         return {"answer": f"fake answer for {payload['query']}",
-                "results": [{"title": "Result", "url": "https://example.com", "content": "content"}]}
+                "results": [{"title": f"Result for {payload['query']}", "url": f"https://example.com/{slug}",
+                             "content": f"content about {payload['query']}"}]}
 
 
 def install():
