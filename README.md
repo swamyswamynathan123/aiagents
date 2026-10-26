@@ -518,7 +518,7 @@ ingests Markdown, text and PDF with section- and page-aware chunking, and quaran
 containing injection text. It combines keyword (BM25) and vector search with rank fusion and an
 LLM re-ranker, rewrites follow-up questions, and answers with citations that are checked against
 the sources. It says "not in the documents" without calling the answer model. It has a
-**retrieval benchmark** (hit@1, recall@k, MRR per mode), 9 answer evals and 26 offline tests.
+**retrieval benchmark** (hit@1, recall@k, MRR per mode), 9 answer evals and 22 offline tests.
 
 ## Guardrails (`guardrails.py`)
 

@@ -150,9 +150,10 @@ def write_pdf(path: Path, pages):
 
 def main():
     DOCS.mkdir(exist_ok=True)
-    (DOCS / "employee_handbook.md").write_text(HANDBOOK, encoding="utf-8")
-    (DOCS / "it_security_policy.md").write_text(SECURITY, encoding="utf-8")
-    (DOCS / "x200_release_notes.md").write_text(RELEASE_NOTES, encoding="utf-8")
+    # newline="\n": LF on every OS, matching .gitattributes
+    (DOCS / "employee_handbook.md").write_text(HANDBOOK, encoding="utf-8", newline="\n")
+    (DOCS / "it_security_policy.md").write_text(SECURITY, encoding="utf-8", newline="\n")
+    (DOCS / "x200_release_notes.md").write_text(RELEASE_NOTES, encoding="utf-8", newline="\n")
     write_pdf(DOCS / "x200_router_manual.pdf", MANUAL_PAGES)
     print(f"Wrote {len(list(DOCS.iterdir()))} documents to {DOCS}")
 

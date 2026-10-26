@@ -1121,7 +1121,7 @@ What the numbers showed:
   threshold reasoning ($40 taxi vs $25 receipts), a contact email, an out-of-scope refusal and a
   blocked injection. All passed against the real API, after the PII fix.
 - **The retrieval benchmark** above, using real embeddings.
-- **26 offline tests** (`tests/test_doc_qa.py`) cover:
+- **22 offline tests** (`tests/test_doc_qa.py`) cover:
   - section and page metadata, quarantine, and skipped files;
   - the tokenizer and BM25, rank fusion, and re-rank filtering;
   - a **BM25 regression guard** (recall@4 must stay 100% on the benchmark);
